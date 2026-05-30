@@ -383,7 +383,7 @@ Instructions:
       const option = qEntry.options.find(o => o.text.toLowerCase() === optText.toLowerCase() || o.text.toLowerCase().includes(optText.toLowerCase()));
       if (option && option.id) {
         try {
-          const inputLocator = page.locator(`#${option.id}`).first();
+          const inputLocator = page.locator(`[id="${option.id}"]`).first();
           if (await inputLocator.count() > 0) {
             await inputLocator.click();
             console.log(`      ✅ Checked: "${qEntry.question}" -> "${option.text}"`);
@@ -732,17 +732,16 @@ async function listProductOnIndiaMart(page, product) {
         uploadedImages = true;
         
         // Wait for crop popup and click 'Upload Photos' inside it
-        console.log("      Waiting 6 seconds for crop popup...");
-        await page.waitForTimeout(6000);
-        
-        const cropUploadBtn = page.locator("button:has-text('Upload Photos'), button.Crop_bg1");
-        if (await cropUploadBtn.count() > 0 && await cropUploadBtn.isVisible()) {
+        try {
+          console.log("      Waiting for crop popup button to become visible...");
+          const cropUploadBtn = page.locator("button:has-text('Upload Photos'), button.Crop_bg1").first();
+          await cropUploadBtn.waitFor({ state: 'visible', timeout: 10000 });
           console.log("      Clicking 'Upload Photos' button inside crop popup...");
           await cropUploadBtn.click();
           console.log("      Clicked! Waiting 4 seconds for processing...");
           await page.waitForTimeout(4000);
-        } else {
-          console.log("      No crop popup detected.");
+        } catch (e) {
+          console.log("      No crop popup detected or timed out waiting.");
         }
         break;
       } catch (uploadErr) {}
