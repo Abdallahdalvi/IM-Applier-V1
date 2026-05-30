@@ -385,7 +385,7 @@ Instructions:
         try {
           const inputLocator = page.locator(`[id="${option.id}"]`).first();
           if (await inputLocator.count() > 0) {
-            await inputLocator.click();
+            await inputLocator.click({ force: true });
             console.log(`      ✅ Checked: "${qEntry.question}" -> "${option.text}"`);
             await page.waitForTimeout(500);
           }
