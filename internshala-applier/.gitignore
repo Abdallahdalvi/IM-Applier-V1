@@ -1,0 +1,32 @@
+# Environment – contains secret API keys, NEVER commit this
+.env
+.env.*
+
+# Node
+node_modules/
+
+# Build outputs
+.webpack/
+out/
+
+# Logs and HTML dumps
+*.log
+*.html
+!src/index.html
+
+# Personal user data (contains OpenAI keys, resumes, and screenshots)
+users/
+scratch/
+resume.txt
+candidate-profile.json
+applied-elements-debug.json
+jd-dump.json
+
+# Bot state and history
+job-engine/applied-jobs.json
+job-engine/skip-reasons.json
+job-queue*.json
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,24 @@
+{
+  "location": "Mumbai",
+  "openToRelocation": true,
+  "noticePeriodDays": 15,
+  "experienceYears": {
+    "customer_support": 2,
+    "sales": 2,
+    "digital_marketing": 3
+  },
+  "expectedSalary": {
+    "monthly": 35000,
+    "yearly": 420000
+  },
+  "englishSkill": "Good",
+  "availability": "Immediate",
+  "targetApplicationGoal": "I want to apply to customer service and support roles across India. Even though my background is in Marketing, I want to emphasize my transferable skills like communication, patience, and resolving customer queries effectively.",
+  "strengths": [
+    "Clear communication",
+    "Customer handling",
+    "Problem solving",
+    "Target-oriented mindset"
+  ]
+}
+

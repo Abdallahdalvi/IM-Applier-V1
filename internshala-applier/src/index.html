@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://fonts.gstatic.com; font-src 'self' https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data:;" />
+  <title>Dalvi Internshala Applier V2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+</head>
+<body>
+
+  <!-- ═══ TOP APP BAR ═══ -->
+  <header id="appbar">
+    <div class="appbar-left">
+      <img class="appbar-logo" src="data:image/jpeg;base64,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|/" alt="Logo" />
+      <h1 class="appbar-title">Dalvi V2</h1>
+      <span class="appbar-subtitle">Internshala Applier</span>
+    </div>
+    <div class="appbar-right">
+      <div id="status-chip" class="chip chip-idle">
+        <span class="chip-dot"></span>
+        <span id="status-text">Idle</span>
+      </div>
+      <button id="browser-btn" class="btn-icon" title="Open Internshala Browser">🌐</button>
+    </div>
+  </header>
+
+  <!-- ═══ STATS ROW ═══ -->
+  <div id="stats-row">
+    <div class="stat-card">
+      <div class="stat-icon-wrap stat-icon-blue">🔍</div>
+      <div class="stat-body"><span class="stat-value" id="s-discovered">—</span><span class="stat-label">Discovered</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon-wrap stat-icon-orange">⚙️</div>
+      <div class="stat-body"><span class="stat-value" id="s-filtered">—</span><span class="stat-label">Filtered</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon-wrap stat-icon-green">✅</div>
+      <div class="stat-body"><span class="stat-value" id="s-applied">—</span><span class="stat-label">Applied</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon-wrap stat-icon-purple">⏭️</div>
+      <div class="stat-body"><span class="stat-value" id="s-skipped">—</span><span class="stat-label">Skipped</span></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon-wrap stat-icon-red">❌</div>
+      <div class="stat-body"><span class="stat-value" id="s-errors">—</span><span class="stat-label">Errors</span></div>
+    </div>
+  </div>
+
+  <!-- ═══ MAIN CONTENT ═══ -->
+  <div id="main-grid">
+
+    <!-- LEFT: SETTINGS PANEL -->
+    <aside id="settings-panel">
+
+      <!-- Resume Card -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-emoji">📄</span>
+          <span class="card-title">Resume</span>
+        </div>
+        <div class="card-body">
+          <div id="drop-zone">
+            <div class="dz-icon">☁️</div>
+            <p class="dz-title">Upload Resume PDF</p>
+            <p class="dz-hint">Click to browse or drag &amp; drop</p>
+          </div>
+          <div id="resume-info" style="display:none">
+            <div class="resume-file">
+              <span style="font-size:20px">📎</span>
+              <span id="resume-name">resume.pdf</span>
+              <button id="resume-change" class="btn-text">Change</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Settings Card -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-emoji">🔑</span>
+          <span class="card-title">API Settings</span>
+        </div>
+        <div class="card-body">
+          <label class="field-label" for="openai-api-key">OpenAI API Key</label>
+          <input id="openai-api-key" class="md-input" type="password" placeholder="sk-..." />
+
+          <label class="field-label" for="openai-model">OpenAI Model</label>
+          <div class="model-select-row">
+            <select id="openai-model" class="md-input">
+              <option value="gpt-5.4">gpt-5.4 (Default)</option>
+              <option value="gpt-4o">gpt-4o</option>
+              <option value="gpt-4o-mini">gpt-4o-mini</option>
+              <option value="o1-mini">o1-mini</option>
+              <option value="o1-preview">o1-preview</option>
+            </select>
+            <button id="fetch-models-btn" class="md-btn md-btn-tonal btn-small" title="Fetch live models from OpenAI">🔄 Fetch</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filters Card -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-emoji">🎯</span>
+          <span class="card-title">Filters</span>
+        </div>
+        <div class="card-body">
+          <label class="field-label" for="location">Location</label>
+          <select id="location" class="md-input">
+            <option value="">All locations</option>
+            <option value="mumbai" selected>Mumbai</option>
+            <option value="delhi">Delhi</option>
+            <option value="bangalore">Bangalore</option>
+            <option value="hyderabad">Hyderabad</option>
+            <option value="chennai">Chennai</option>
+            <option value="kolkata">Kolkata</option>
+            <option value="pune">Pune</option>
+            <option value="ahmedabad">Ahmedabad</option>
+            <option value="jaipur">Jaipur</option>
+            <option value="lucknow">Lucknow</option>
+            <option value="noida">Noida</option>
+            <option value="gurgaon">Gurgaon</option>
+            <option value="chandigarh">Chandigarh</option>
+            <option value="indore">Indore</option>
+            <option value="bhopal">Bhopal</option>
+            <option value="nagpur">Nagpur</option>
+            <option value="coimbatore">Coimbatore</option>
+            <option value="kochi">Kochi</option>
+            <option value="visakhapatnam">Visakhapatnam</option>
+            <option value="surat">Surat</option>
+            <option value="vadodara">Vadodara</option>
+            <option value="thiruvananthapuram">Thiruvananthapuram</option>
+            <option value="agra">Agra</option>
+            <option value="patna">Patna</option>
+            <option value="ranchi">Ranchi</option>
+            <option value="dehradun">Dehradun</option>
+            <option value="mysore">Mysore</option>
+            <option value="mangalore">Mangalore</option>
+            <option value="guwahati">Guwahati</option>
+            <option value="bhubaneswar">Bhubaneswar</option>
+          </select>
+
+          <label class="field-label" for="min-salary">Minimum Salary (₹/year)</label>
+          <input id="min-salary" class="md-input" type="number" value="300000" step="25000" />
+
+          <div class="checkbox-row">
+            <label class="md-checkbox">
+              <input type="checkbox" id="wfh-check" />
+              <span>🏠 Include Work from Home</span>
+            </label>
+          </div>
+
+          <div class="checkbox-row">
+            <label class="md-checkbox">
+              <input type="checkbox" id="part-time-check" />
+              <span>⏰ Part-time only</span>
+            </label>
+          </div>
+
+          <label class="field-label" for="exp-range">Experience</label>
+          <select id="exp-range" class="md-input">
+            <option value="">Any experience</option>
+            <option value="0">Fresher</option>
+            <option value="1">1 year</option>
+            <option value="2">2 years</option>
+            <option value="3">3 years</option>
+            <option value="5">5+ years</option>
+          </select>
+
+          <label id="allowed-kw-label" class="field-label" for="allowed-kw">Search Keywords <span class="field-hint">(one per line, 2–3 words each)</span></label>
+          <textarea id="allowed-kw" class="md-textarea" rows="4" placeholder="digital marketing&#10;social media&#10;content writing&#10;(AI fills this from resume)"></textarea>
+
+          <label id="block-kw-label" class="field-label" for="block-kw">Exclude Keywords <span class="field-hint">(one per line)</span></label>
+          <textarea id="block-kw" class="md-textarea" rows="3" placeholder="telecaller&#10;data entry&#10;(AI fills this from resume)"></textarea>
+        </div>
+      </div>
+
+      <!-- Goal Card -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-emoji">💡</span>
+          <span class="card-title">Application Goal</span>
+        </div>
+        <div class="card-body">
+          <label id="goal-label" class="field-label" for="app-goal">Your Goal</label>
+          <textarea id="app-goal" class="md-textarea" rows="3" placeholder="Upload resume — AI will generate your application goal"></textarea>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div id="action-buttons">
+        <button id="save-btn" class="md-btn md-btn-tonal">💾 Save</button>
+        <button id="run-btn" class="md-btn md-btn-filled">▶ Run Bot</button>
+        <button id="apply-btn" class="md-btn md-btn-apply">🚀 Apply Now</button>
+        <button id="stop-btn" class="md-btn md-btn-danger" disabled>⏹ Stop</button>
+      </div>
+      <p class="btn-hint">▶ = Discover + Apply &nbsp;|&nbsp; 🚀 = Apply to saved jobs</p>
+
+      <div id="save-toast" class="toast" style="display:none">✅ Settings saved</div>
+
+    </aside>
+
+    <!-- RIGHT: LIVE TERMINAL -->
+    <main id="terminal-section">
+      <div class="card card-terminal">
+        <div class="card-header">
+          <span class="card-emoji">🖥️</span>
+          <span class="card-title">Live Output</span>
+          <button id="clear-btn" class="btn-text" style="margin-left:auto">Clear</button>
+        </div>
+        <div id="terminal">
+          <div class="log-line log-info">Welcome to Dalvi! Upload your resume, adjust settings, then click <strong>Run Bot</strong>.</div>
+        </div>
+      </div>
+    </main>
+
+  </div>
+
+</body>
+</html>

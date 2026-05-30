@@ -1,0 +1,16 @@
+node_modules/
+.webpack/
+out/
+.env
+scratch/
+*.log
+product-queue.json
+product-queue-filtered.json
+product-engine/posted-products.json
+product-engine/skip-reasons.json
+product-engine/config.json
+brochures/*.pdf
+brochures/*.png
+brochures/*.jpg
+brochures/*.jpeg
+brochures/*.webp

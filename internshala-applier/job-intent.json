@@ -1,0 +1,25 @@
+{
+  "role": "Social Media Manager",
+  "keywords": [
+    "social media manager",
+    "digital marketing executive",
+    "content strategist"
+  ],
+  "location": "Mumbai",
+  "experienceRange": "2-4 years",
+  "employmentType": ["Full-time", "Remote"],
+  "platforms": ["google_jobs"],
+  "dailyApplicationLimit": 10,
+  "excludeCompanies": [],
+  "excludeKeywords": ["intern", "unpaid", "commission"],
+  "resumePolicy": {
+    "minimumSimilarity": 0.75,
+    "allowRephrase": true,
+    "allowNewClaims": false
+  },
+  "applyPolicy": {
+    "easyApplyOnly": false,
+    "skipLoginRequired": true,
+    "skipExternalRedirects": false
+  }
+}

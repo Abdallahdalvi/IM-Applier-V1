@@ -1,0 +1,41 @@
+{
+  "name": "indiamart-seller-automation",
+  "productName": "IndiaMART Product Listing Bot",
+  "version": "1.0.0",
+  "description": "Automated product listing bot for IndiaMART sellers using Electron, Playwright, and OpenAI.",
+  "main": ".webpack/main",
+  "scripts": {
+    "start": "npx cross-env ELECTRON_DISABLE_SANDBOX=1 electron-forge start",
+    "run-bot": "node product-engine/run-indiamart.js",
+    "package": "electron-forge package",
+    "make": "electron-forge make"
+  },
+  "keywords": [],
+  "author": "devev",
+  "license": "MIT",
+  "devDependencies": {
+    "@electron-forge/cli": "^7.10.2",
+    "@electron-forge/maker-deb": "^7.10.2",
+    "@electron-forge/maker-rpm": "^7.10.2",
+    "@electron-forge/maker-squirrel": "^7.10.2",
+    "@electron-forge/maker-zip": "^7.10.2",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.10.2",
+    "@electron-forge/plugin-fuses": "^7.10.2",
+    "@electron-forge/plugin-webpack": "^7.10.2",
+    "@electron/fuses": "^1.8.0",
+    "@vercel/webpack-asset-relocator-loader": "^1.7.3",
+    "css-loader": "^6.11.0",
+    "electron": "^39.2.7",
+    "node-loader": "^2.1.0",
+    "style-loader": "^3.3.4"
+  },
+  "dependencies": {
+    "cross-env": "^7.0.3",
+    "dotenv": "^17.2.3",
+    "electron-squirrel-startup": "^1.0.1",
+    "openai": "^6.10.0",
+    "pdf-parse": "^1.1.1",
+    "pdfkit": "^0.17.2",
+    "playwright": "^1.57.0"
+  }
+}
