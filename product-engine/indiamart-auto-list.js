@@ -943,13 +943,31 @@ async function listProductOnIndiaMart(page, product) {
         
         // Wait for crop popup and click 'Upload Photos' inside it
         try {
-          console.log("      Waiting for crop popup button to become visible (up to 60 seconds for large images)...");
+          console.log("      Waiting for crop popup button to become visible (up to 60 seconds)...");
           const cropUploadBtn = page.locator("button:has-text('Upload Photos'):visible, button.Crop_bg1:visible").first();
           await cropUploadBtn.waitFor({ state: 'visible', timeout: 60000 });
+          
+          console.log("      Crop popup visible. Waiting 60 seconds for images to be fully uploaded and processed...");
+          await page.waitForTimeout(60000);
+          
+          console.log("      Waiting for 'Upload Photos' button to become enabled...");
+          try {
+            await page.waitForFunction(() => {
+              const btn = Array.from(document.querySelectorAll("button")).find(b => {
+                const text = b.innerText || "";
+                return (text.includes("Upload Photos") || b.classList.contains("Crop_bg1")) && b.getBoundingClientRect().width > 0;
+              });
+              return btn && !btn.disabled;
+            }, { timeout: 60000 });
+            console.log("      'Upload Photos' button is now enabled.");
+          } catch (enabledErr) {
+            console.log("      Timed out waiting for button to enable, proceeding anyway: " + enabledErr.message);
+          }
+          
           console.log("      Clicking 'Upload Photos' button inside crop popup...");
-          await cropUploadBtn.click();
-          console.log("      Clicked! Waiting 6 seconds for processing...");
-          await page.waitForTimeout(6000);
+          await cropUploadBtn.click({ timeout: 20000 });
+          console.log("      Clicked! Waiting 10 seconds for crop popup to save and close...");
+          await page.waitForTimeout(10000);
         } catch (e) {
           console.log("      No crop popup detected or timed out waiting (details: " + e.message + ").");
         }
@@ -967,12 +985,30 @@ async function listProductOnIndiaMart(page, product) {
           console.log("      Waiting for crop popup button to become visible (fallback, up to 60 seconds)...");
           const cropUploadBtn = page.locator("button:has-text('Upload Photos'):visible, button.Crop_bg1:visible").first();
           await cropUploadBtn.waitFor({ state: 'visible', timeout: 60000 });
-          console.log("      Clicking 'Upload Photos' button inside crop popup...");
-          await cropUploadBtn.click();
-          console.log("      Clicked! Waiting 6 seconds for processing...");
-          await page.waitForTimeout(6000);
+          
+          console.log("      Crop popup visible (fallback). Waiting 60 seconds for images to be fully uploaded and processed...");
+          await page.waitForTimeout(60000);
+          
+          console.log("      Waiting for 'Upload Photos' button to become enabled (fallback)...");
+          try {
+            await page.waitForFunction(() => {
+              const btn = Array.from(document.querySelectorAll("button")).find(b => {
+                const text = b.innerText || "";
+                return (text.includes("Upload Photos") || b.classList.contains("Crop_bg1")) && b.getBoundingClientRect().width > 0;
+              });
+              return btn && !btn.disabled;
+            }, { timeout: 60000 });
+            console.log("      'Upload Photos' button is now enabled (fallback).");
+          } catch (enabledErr) {
+            console.log("      Timed out waiting for button to enable in fallback, proceeding anyway: " + enabledErr.message);
+          }
+          
+          console.log("      Clicking 'Upload Photos' button inside crop popup (fallback)...");
+          await cropUploadBtn.click({ timeout: 20000 });
+          console.log("      Clicked! Waiting 10 seconds for crop popup to save and close (fallback)...");
+          await page.waitForTimeout(10000);
         } catch (e) {
-          console.log("      No crop popup detected or timed out waiting in fallback.");
+          console.log("      No crop popup detected or timed out waiting in fallback (details: " + e.message + ").");
         }
       } catch (uploadErr) {
         console.log(`      ⚠️ Image upload error: ${uploadErr.message}`);
@@ -1052,6 +1088,12 @@ async function listProductOnIndiaMart(page, product) {
         } catch (pdfErr) {}
       }
     }
+  }
+
+  // If we uploaded images or brochure, wait 20 seconds for processing to complete on IndiaMART's side
+  if ((product.images && product.images.length > 0) || product.pdfFile) {
+    console.log("   ⏳ Waiting 20 seconds for images and PDF to be fully processed by IndiaMART...");
+    await page.waitForTimeout(20000);
   }
 
   // 7. Click Save and Continue to go to Page 2 (Specifications)
