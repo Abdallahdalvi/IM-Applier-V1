@@ -39,6 +39,12 @@ const stats = {
   errors: 0
 };
 
+// Session cache for specifications to avoid hitting OpenAI API repeatedly for variants of the same brochure
+const sessionCache = {
+  page1Specs: {}, // keyed by pdfFile name -> labelToValMap
+  page2Specs: {}  // keyed by pdfFile name -> selectedAnswers
+};
+
 function loadPostedProducts() {
   if (!fs.existsSync(POSTED_PRODUCTS_PATH)) return new Set();
   try {
@@ -125,6 +131,21 @@ async function fillTechnicalSpecsWithAI(page, product) {
       const text = el.innerText?.trim() || "";
       if (!text || text.length > 50 || text.length < 2) return null;
       
+      // Filter out standard page 1/2 fields to avoid duplicate fills or timeouts
+      const lowerText = text.toLowerCase();
+      if (lowerText.includes("product name") || 
+          lowerText.includes("product/service name") || 
+          lowerText.includes("price") || 
+          lowerText.includes("description") || 
+          lowerText.includes("category") || 
+          lowerText.includes("unit") || 
+          lowerText.includes("photo") || 
+          lowerText.includes("image") || 
+          lowerText.includes("brochure") || 
+          lowerText.includes("pdf")) {
+        return null;
+      }
+      
       // Try to find the associated input/select/textarea
       let inputEl = el.querySelector("input, select, textarea");
       
@@ -144,7 +165,7 @@ async function fillTechnicalSpecsWithAI(page, product) {
       
       if (!inputEl) return null;
       
-      // Check if the input element itself is visible in the viewport/DOM
+      // Check if the input element itself is visible in the DOM
       const inputRect = inputEl.getBoundingClientRect();
       if (!(inputRect.width > 0 && inputRect.height > 0)) return null;
       const inputStyle = window.getComputedStyle(inputEl);
@@ -182,21 +203,31 @@ async function fillTechnicalSpecsWithAI(page, product) {
     return;
   }
   
-  console.log(`      Detected ${uniqueFormElements.length} fields on page. Consulting AI...`);
-  
+  const cacheKey = product.pdfFile || "global";
   let matchedValues = {};
-  try {
-    const envPath = path.join(__dirname, "../.env");
-    if (fs.existsSync(envPath)) {
-      require("dotenv").config({ path: envPath });
+
+  if (sessionCache.page1Specs[cacheKey]) {
+    console.log(`      ℹ️  Reusing cached Page 1 specs for "${cacheKey}"...`);
+    const labelToValMap = sessionCache.page1Specs[cacheKey];
+    for (const item of uniqueFormElements) {
+      if (labelToValMap[item.label] !== undefined) {
+        matchedValues[String(item.id)] = labelToValMap[item.label];
+      }
     }
-    const apiKey = (process.env.OPENAI_API_KEY || "").trim();
-    if (apiKey && !apiKey.startsWith("sk-xx")) {
-      const OpenAI = require("openai");
-      const client = new OpenAI({ apiKey: apiKey });
-      const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-      
-      const prompt = `
+  } else {
+    console.log(`      Detected ${uniqueFormElements.length} fields on page. Consulting AI...`);
+    try {
+      const envPath = path.join(__dirname, "../.env");
+      if (fs.existsSync(envPath)) {
+        require("dotenv").config({ path: envPath });
+      }
+      const apiKey = (process.env.OPENAI_API_KEY || "").trim();
+      if (apiKey && !apiKey.startsWith("sk-xx")) {
+        const OpenAI = require("openai");
+        const client = new OpenAI({ apiKey: apiKey });
+        const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+        
+        const prompt = `
 You are an expert product catalog filler helping an industrial hardware seller on IndiaMART.
 Based on the product details, determine the most accurate and relevant value to fill/select for each form field detected on the page.
 
@@ -216,23 +247,35 @@ Instructions:
 5. Respond with raw JSON only.
 `.trim();
 
-      const tokenParam = model.startsWith("gpt-5") || model.startsWith("o")
-        ? { max_completion_tokens: 1500 }
-        : { max_tokens: 1500 };
+        const tokenParam = model.startsWith("gpt-5") || model.startsWith("o")
+          ? { max_completion_tokens: 1500 }
+          : { max_tokens: 1500 };
 
-      const response = await client.chat.completions.create({
-        model: model,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.1,
-        response_format: { type: "json_object" },
-        ...tokenParam
-      });
-      
-      matchedValues = JSON.parse(response.choices[0].message.content.trim());
-      console.log("      AI suggestions received:", matchedValues);
+        const response = await client.chat.completions.create({
+          model: model,
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.1,
+          response_format: { type: "json_object" },
+          ...tokenParam
+        });
+        
+        const rawMatchedValues = JSON.parse(response.choices[0].message.content.trim());
+        console.log("      AI suggestions received:", rawMatchedValues);
+        
+        // Cache mapping label to value
+        const labelToValMap = {};
+        for (const item of uniqueFormElements) {
+          const val = rawMatchedValues[String(item.id)];
+          if (val !== undefined && val !== null) {
+            labelToValMap[item.label] = val;
+          }
+        }
+        sessionCache.page1Specs[cacheKey] = labelToValMap;
+        matchedValues = rawMatchedValues;
+      }
+    } catch (err) {
+      console.warn("      ⚠️ Runtime AI spec matching failed:", err.message);
     }
-  } catch (err) {
-    console.warn("      ⚠️ Runtime AI spec matching failed:", err.message);
   }
   
   // Fill the fields
@@ -314,27 +357,32 @@ async function fillPage2SpecsWithAI(page, product) {
     return;
   }
 
-  console.log(`      Detected ${specsStructure.length} specification questions. Consulting OpenAI...`);
-  
+  const cacheKey = product.pdfFile || "global";
   let selectedAnswers = {};
-  try {
-    const envPath = path.join(__dirname, "../.env");
-    if (fs.existsSync(envPath)) {
-      require("dotenv").config({ path: envPath });
-    }
-    const apiKey = (process.env.OPENAI_API_KEY || "").trim();
-    if (apiKey && !apiKey.startsWith("sk-xx")) {
-      const OpenAI = require("openai");
-      const client = new OpenAI({ apiKey: apiKey });
-      const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-      
-      const cleanStructure = specsStructure.map(s => ({
-        question: s.question,
-        type: s.type,
-        options: s.options.map(o => o.text)
-      }));
-      
-      const prompt = `
+
+  if (sessionCache.page2Specs[cacheKey]) {
+    console.log(`      ℹ️  Reusing cached Page 2 specs for "${cacheKey}"...`);
+    selectedAnswers = sessionCache.page2Specs[cacheKey];
+  } else {
+    console.log(`      Detected ${specsStructure.length} specification questions. Consulting OpenAI...`);
+    try {
+      const envPath = path.join(__dirname, "../.env");
+      if (fs.existsSync(envPath)) {
+        require("dotenv").config({ path: envPath });
+      }
+      const apiKey = (process.env.OPENAI_API_KEY || "").trim();
+      if (apiKey && !apiKey.startsWith("sk-xx")) {
+        const OpenAI = require("openai");
+        const client = new OpenAI({ apiKey: apiKey });
+        const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+        
+        const cleanStructure = specsStructure.map(s => ({
+          question: s.question,
+          type: s.type,
+          options: s.options.map(o => o.text)
+        }));
+        
+        const prompt = `
 You are an expert product catalog compiler helping an industrial hardware seller on IndiaMART.
 Determine the most appropriate option value to select for each specification question based on the product description and details.
 
@@ -354,23 +402,25 @@ Instructions:
 5. Respond with raw JSON only.
 `.trim();
 
-      const tokenParam = model.startsWith("gpt-5") || model.startsWith("o")
-        ? { max_completion_tokens: 1500 }
-        : { max_tokens: 1500 };
+        const tokenParam = model.startsWith("gpt-5") || model.startsWith("o")
+          ? { max_completion_tokens: 1500 }
+          : { max_tokens: 1500 };
 
-      const response = await client.chat.completions.create({
-        model: model,
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.1,
-        response_format: { type: "json_object" },
-        ...tokenParam
-      });
-      
-      selectedAnswers = JSON.parse(response.choices[0].message.content.trim());
-      console.log("      OpenAI specifications recommendations received:", selectedAnswers);
+        const response = await client.chat.completions.create({
+          model: model,
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.1,
+          response_format: { type: "json_object" },
+          ...tokenParam
+        });
+        
+        selectedAnswers = JSON.parse(response.choices[0].message.content.trim());
+        console.log("      OpenAI specifications recommendations received:", selectedAnswers);
+        sessionCache.page2Specs[cacheKey] = selectedAnswers;
+      }
+    } catch (err) {
+      console.log(`      ⚠️ OpenAI spec classification failed: ${err.message}`);
     }
-  } catch (err) {
-    console.log(`      ⚠️ OpenAI spec classification failed: ${err.message}`);
   }
 
   // Click the matching inputs in the DOM
@@ -383,14 +433,47 @@ Instructions:
       const option = qEntry.options.find(o => o.text.toLowerCase() === optText.toLowerCase() || o.text.toLowerCase().includes(optText.toLowerCase()));
       if (option && option.id) {
         try {
-          const inputLocator = page.locator(`[id="${option.id}"]`).first();
-          if (await inputLocator.count() > 0) {
+          const labelLocator = page.locator(`label[for="${option.id}"]`).first();
+          if (await labelLocator.count() > 0) {
+            await labelLocator.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
+            await labelLocator.click({ force: true });
+            console.log(`      ✅ Checked (via label): "${qEntry.question}" -> "${option.text}"`);
+          } else {
+            const inputLocator = page.locator(`[id="${option.id}"]`).first();
+            await inputLocator.scrollIntoViewIfNeeded({ timeout: 2000 }).catch(() => {});
             await inputLocator.click({ force: true });
-            console.log(`      ✅ Checked: "${qEntry.question}" -> "${option.text}"`);
-            await page.waitForTimeout(500);
+            console.log(`      ✅ Checked (via input): "${qEntry.question}" -> "${option.text}"`);
           }
+          await page.waitForTimeout(500);
         } catch (clickErr) {
           console.log(`      ⚠️ Failed to click option "${option.text}" for question "${qEntry.question}": ${clickErr.message}`);
+          
+          // JS Fallback
+          try {
+            const clickedViaJS = await page.evaluate((optId) => {
+              const el = document.getElementById(optId);
+              if (el) {
+                const label = document.querySelector(`label[for="${optId}"]`);
+                if (label) {
+                  label.click();
+                } else {
+                  el.click();
+                }
+                // Ensure it is checked
+                if (!el.checked) {
+                  el.checked = true;
+                  el.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+                return true;
+              }
+              return false;
+            }, option.id);
+            if (clickedViaJS) {
+              console.log(`      ⚡ Checked via JS Fallback: "${qEntry.question}" -> "${option.text}"`);
+            }
+          } catch (jsErr) {
+            console.log(`      ⚠️ JS Fallback failed: ${jsErr.message}`);
+          }
         }
       }
     }
