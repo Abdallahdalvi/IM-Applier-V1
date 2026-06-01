@@ -100,6 +100,29 @@ function loadPostedProducts() {
     const pdfPath = path.join(BROCHURES_DIR, pdfFile);
     const pdfBaseName = path.basename(pdfFile, ".pdf");
 
+    // Calculate MD5 hash of the PDF file contents
+    let currentPdfHash = "";
+    try {
+      const pdfContent = fs.readFileSync(pdfPath);
+      currentPdfHash = crypto.createHash("md5").update(pdfContent).digest("hex");
+    } catch (hashErr) {
+      console.warn(`      ⚠️ Could not calculate hash for "${pdfFile}":`, hashErr.message);
+    }
+
+    // Determine current matching images first
+    let matchingImages = [];
+    if (config && config.selectedPhotos && config.selectedPhotos.length > 0) {
+      matchingImages = config.selectedPhotos;
+    } else {
+      matchingImages = imageFiles
+        .filter(img => {
+          const imgBase = path.basename(img, path.extname(img));
+          return imgBase.toLowerCase().startsWith(pdfBaseName.toLowerCase()) || 
+                 pdfBaseName.toLowerCase().startsWith(imgBase.toLowerCase());
+        })
+        .map(img => path.join(BROCHURES_DIR, img));
+    }
+
     // Generate base unique ID based on file path
     const baseId = crypto.createHash("md5").update(pdfPath).digest("hex");
 
@@ -108,18 +131,55 @@ function loadPostedProducts() {
       continue;
     }
 
-    const existingVariantsCount = queue.filter(item => item.id.startsWith(baseId + "_")).length;
+    const existingVariants = queue.filter(item => item.id.startsWith(baseId + "_"));
+    const existingVariantsCount = existingVariants.length;
+
+    let needsRegen = false;
+    let regenReason = "";
+
+    if (existingVariantsCount === 0) {
+      needsRegen = true;
+      regenReason = "New product brochure discovered";
+    } else if (existingVariantsCount !== dailyTarget) {
+      needsRegen = true;
+      regenReason = `Target count changed from ${existingVariantsCount} to ${dailyTarget}`;
+    } else {
+      const firstVariant = existingVariants[0];
+      
+      // Check if PDF content changed
+      if (currentPdfHash && firstVariant.pdfHash !== currentPdfHash) {
+        needsRegen = true;
+        regenReason = "Brochure PDF content was updated";
+      }
+      
+      // Check if matching images list changed
+      const existingImages = firstVariant.images || [];
+      const imagesChanged = existingImages.length !== matchingImages.length || 
+                            !existingImages.every((val, idx) => val === matchingImages[idx]);
+      if (imagesChanged) {
+        needsRegen = true;
+        regenReason = "Product images in brochures/ folder were updated";
+      }
+
+      // Check if category changed
+      const currentCategory = config && config.selectedCategory ? config.selectedCategory : firstVariant.category;
+      if (firstVariant.category !== currentCategory) {
+        needsRegen = true;
+        regenReason = "Category setting in control panel was updated";
+      }
+    }
+
+    if (!needsRegen) {
+      console.log(`⏭️  Skipping "${pdfFile}" — up-to-date variants (${existingVariantsCount}) already in queue`);
+      continue;
+    }
+
     if (existingVariantsCount > 0) {
-      if (existingVariantsCount === dailyTarget) {
-        console.log(`⏭️  Skipping "${pdfFile}" — variants (${existingVariantsCount}) already match target count`);
-        continue;
-      } else {
-        console.log(`🔄 Target count changed from ${existingVariantsCount} to ${dailyTarget}. Regenerating variants for "${pdfFile}"...`);
-        // Remove existing variants for this PDF from the queue
-        for (let idx = queue.length - 1; idx >= 0; idx--) {
-          if (queue[idx].id.startsWith(baseId + "_")) {
-            queue.splice(idx, 1);
-          }
+      console.log(`🔄 ${regenReason}. Regenerating variants for "${pdfFile}"...`);
+      // Remove existing variants for this PDF from the queue
+      for (let idx = queue.length - 1; idx >= 0; idx--) {
+        if (queue[idx].id.startsWith(baseId + "_")) {
+          queue.splice(idx, 1);
         }
       }
     }
@@ -135,39 +195,24 @@ function loadPostedProducts() {
       const variants = await extractProductVariants(rawText, dailyTarget);
       console.log(`   ✨ Generated ${variants.length} variations successfully.`);
 
-      // 3. Find matching image files (Use manual selected photos if available, otherwise fallback to name matching)
-      let matchingImages = [];
-      if (config && config.selectedPhotos && config.selectedPhotos.length > 0) {
-        matchingImages = config.selectedPhotos;
-        console.log(`      Using ${matchingImages.length} manually uploaded photos from config.`);
+      if (matchingImages.length > 0) {
+        console.log(`      Attaching ${matchingImages.length} images to all variants.`);
       } else {
-        matchingImages = imageFiles
-          .filter(img => {
-            const imgBase = path.basename(img, path.extname(img));
-            // Matches if the image name starts with the PDF name or contains it
-            return imgBase.toLowerCase().startsWith(pdfBaseName.toLowerCase()) || 
-                   pdfBaseName.toLowerCase().startsWith(imgBase.toLowerCase());
-          })
-          .map(img => path.join(BROCHURES_DIR, img));
-
-        if (matchingImages.length > 0) {
-          console.log(`      Found ${matchingImages.length} matching product images to attach to all variants.`);
-        } else {
-          console.warn(`      ⚠️ No matching images found in 'brochures/' starting with name "${pdfBaseName}"`);
-        }
+        console.warn(`      ⚠️ No matching images found in 'brochures/' starting with name "${pdfBaseName}"`);
       }
 
-      // 4. Append all variants to the queue
+      // 3. Append all variants to the queue
       variants.forEach((variant, index) => {
         const variantId = `${baseId}_${index}`;
         queue.push({
           id: variantId,
           pdfFile,
+          pdfHash: currentPdfHash,
           discoveredAt: new Date().toISOString(),
           productName: variant.productName,
           price: fixedPrice !== null && !isNaN(fixedPrice) ? fixedPrice : variant.price,
           unit: variant.unit,
-          category: variant.categorySuggestion,
+          category: config && config.selectedCategory ? config.selectedCategory : variant.categorySuggestion,
           description: variant.description,
           specifications: variant.specifications || {},
           images: matchingImages

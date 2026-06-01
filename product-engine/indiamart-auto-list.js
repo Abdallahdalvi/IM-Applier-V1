@@ -21,13 +21,20 @@ const DRY_RUN = process.env.DRY_RUN === "true";
 const CDP_PORT = process.env.PORT || "9222";
 
 let fixedPrice = null;
+let dailyTarget = null;
 const configPath = path.join(__dirname, "config.json");
 if (fs.existsSync(configPath)) {
   try {
     const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-    if (config && config.fixedPrice) {
-      fixedPrice = parseInt(config.fixedPrice);
-      console.log(`ℹ️  Using fixed listing price from config: ₹${fixedPrice}`);
+    if (config) {
+      if (config.fixedPrice) {
+        fixedPrice = parseInt(config.fixedPrice);
+        console.log(`ℹ️  Using fixed listing price from config: ₹${fixedPrice}`);
+      }
+      if (config.dailyTarget) {
+        dailyTarget = parseInt(config.dailyTarget);
+        console.log(`ℹ️  Using daily target limit from config: ${dailyTarget}`);
+      }
     }
   } catch (e) {}
 }
@@ -1049,10 +1056,16 @@ async function listProductOnIndiaMart(page, product) {
 
   console.log(`📋  ${products.length} products in filtered queue.`);
 
+  let postedInThisRun = 0;
   for (const product of products) {
     if (posted.has(product.id)) {
       stats.skipped_disk++;
       continue;
+    }
+
+    if (dailyTarget !== null && postedInThisRun >= dailyTarget) {
+      console.log(`ℹ️  Reached daily post target limit (${dailyTarget}). Stopping listing runner.`);
+      break;
     }
 
     try {
@@ -1060,6 +1073,7 @@ async function listProductOnIndiaMart(page, product) {
       if (success) {
         posted.add(product.id);
         stats.posted++;
+        postedInThisRun++;
       } else {
         skipReasons[product.id] = "form_fill_failure";
       }

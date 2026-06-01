@@ -56,6 +56,7 @@ async function loadConfig() {
     dailyTarget.value    = cfg.dailyTarget || 30;
     fixedPrice.value     = cfg.fixedPrice || 4999;
     dryRunCheck.checked  = cfg.dryRun || false;
+    $('selected-category').value = cfg.selectedCategory || 'Air Quality Monitors';
 
     const modelVal = cfg.openaiModel || 'gpt-4o-mini';
     if (!Array.from(openaiModel.options).some(o => o.value === modelVal)) {
@@ -181,7 +182,8 @@ function buildConfig() {
     dailyTarget:  parseInt(dailyTarget.value) || 30,
     fixedPrice:   parseInt(fixedPrice.value) || 4999,
     dryRun:       dryRunCheck.checked,
-    selectedPhotos: selectedPhotos
+    selectedPhotos: selectedPhotos,
+    selectedCategory: $('selected-category').value
   };
 }
 
