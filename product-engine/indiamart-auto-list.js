@@ -1030,6 +1030,12 @@ async function listProductOnIndiaMart(page, product) {
     // Select seller panel window (not webpack UI)
     page = allPages.find(p => p.url().includes('indiamart.com')) || allPages[0];
     console.log("✅  Connected to browser");
+
+    // Automatically accept all browser dialogs (like beforeunload "Leave page" prompts)
+    page.on('dialog', async dialog => {
+      console.log(`   [Dialog] Automatically accepting: ${dialog.type()} - "${dialog.message()}"`);
+      await dialog.accept().catch(() => {});
+    });
   } catch (err) {
     console.error("❌  Failed to connect to Electron browser.");
     console.error(`   Ensure Electron is running with remote debugging active on port ${CDP_PORT}.`);
