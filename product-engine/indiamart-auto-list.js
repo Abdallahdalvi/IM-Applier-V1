@@ -22,6 +22,7 @@ const CDP_PORT = process.env.PORT || "9222";
 
 let fixedPrice = null;
 let dailyTarget = null;
+let selectedCategory = null;
 const configPath = path.join(__dirname, "config.json");
 if (fs.existsSync(configPath)) {
   try {
@@ -34,6 +35,10 @@ if (fs.existsSync(configPath)) {
       if (config.dailyTarget) {
         dailyTarget = parseInt(config.dailyTarget);
         console.log(`ℹ️  Using daily target limit from config: ${dailyTarget}`);
+      }
+      if (config.selectedCategory) {
+        selectedCategory = config.selectedCategory;
+        console.log(`ℹ️  Using category from config: "${selectedCategory}"`);
       }
     }
   } catch (e) {}
@@ -335,15 +340,31 @@ async function fillPage2SpecsWithAI(page, product) {
       if (!question) return;
       
       let optionText = '';
+      let isOther = false;
       const id = input.id;
       if (id) {
         const label = document.querySelector(`label[for="${id}"]`);
-        if (label) optionText = label.innerText.trim();
+        if (label) {
+          optionText = label.innerText.trim();
+          if (label.querySelector('input[type="text"]') || label.querySelector('input:not([type="radio"]):not([type="checkbox"])')) {
+            isOther = true;
+          }
+        }
       }
       
       if (!optionText) {
         const parent = input.parentElement;
-        if (parent) optionText = parent.innerText.trim();
+        if (parent) {
+          optionText = parent.innerText.trim();
+          if (parent.querySelector('input[type="text"]') || parent.querySelector('input:not([type="radio"]):not([type="checkbox"])')) {
+            isOther = true;
+          }
+        }
+      }
+      
+      // If it contains a text input or the label/parent text is literally "other" or is empty, treat as "Other"
+      if (isOther || optionText.toLowerCase() === 'other' || optionText === '') {
+        optionText = 'Other';
       }
       
       let entry = specsList.find(s => s.question.toLowerCase() === question.toLowerCase());
@@ -402,11 +423,12 @@ ${JSON.stringify(cleanStructure, null, 2)}
 
 Instructions:
 1. For each question, choose the most appropriate option text from its "options" list.
-2. If it is a radio (single-select), you must return exactly one option text (or null if none fit).
-3. If it is a checkbox (multi-select), you can return an array of one or more option texts that apply.
-4. Output a raw JSON object mapping each question name to its selected option text(s).
-   Example: { "Form Factor": "DIN Rail", "WAN Type": ["4G LTE", "Ethernet"] }
-5. Respond with raw JSON only.
+2. If none of the options fit perfectly, but there is an "Other" option in the options list, you MUST select "Other" and provide the custom value. Format it as "Other:customValue" (e.g., "Other:Ubiqedge" or "Other:12-24V DC" or "Other:Remote Monitoring"). Do NOT just say "Other".
+3. If it is a radio (single-select), you must return exactly one option text (or "Other:customValue", or null if none fit).
+4. If it is a checkbox (multi-select), you can return an array of one or more option texts (or "Other:customValue") that apply.
+5. Output a raw JSON object mapping each question name to its selected option text(s).
+   Example: { "Form Factor": "DIN Rail", "Brand": "Other:Ubiqedge", "Voltage": "Other:12-24V DC" }
+6. Respond with raw JSON only.
 `.trim();
 
         const tokenParam = model.startsWith("gpt-5") || model.startsWith("o")
@@ -436,7 +458,15 @@ Instructions:
     if (!ans) continue;
     
     const targets = Array.isArray(ans) ? ans : [ans];
-    for (const optText of targets) {
+    for (let optText of targets) {
+      let customValue = null;
+      if (optText.startsWith("Other:") || optText.toLowerCase() === "other") {
+        if (optText.includes(":")) {
+          customValue = optText.substring(optText.indexOf(":") + 1).trim();
+          optText = optText.substring(0, optText.indexOf(":")).trim(); // "Other"
+        }
+      }
+
       const option = qEntry.options.find(o => o.text.toLowerCase() === optText.toLowerCase() || o.text.toLowerCase().includes(optText.toLowerCase()));
       if (option && option.id) {
         try {
@@ -452,6 +482,54 @@ Instructions:
             console.log(`      ✅ Checked (via input): "${qEntry.question}" -> "${option.text}"`);
           }
           await page.waitForTimeout(500);
+
+          if (customValue) {
+            console.log(`      Filling custom value for "Other": "${customValue}"`);
+            await page.evaluate(([optId, val]) => {
+              const radio = document.getElementById(optId);
+              if (!radio) return false;
+              
+              // Helper to find textbox in a container
+              const findTextBox = (container) => {
+                if (!container) return null;
+                const textInputs = Array.from(container.querySelectorAll('input:not([type="radio"]):not([type="checkbox"]):not([type="hidden"])'));
+                return textInputs.find(i => {
+                  const rect = i.getBoundingClientRect();
+                  return rect.width > 0 && rect.height > 0 && window.getComputedStyle(i).display !== 'none';
+                });
+              };
+              
+              // Check parent
+              let tb = findTextBox(radio.parentElement);
+              if (!tb) {
+                // Check label
+                const label = document.querySelector(`label[for="${optId}"]`);
+                if (label) {
+                  tb = findTextBox(label) || findTextBox(label.parentElement);
+                }
+              }
+              if (!tb) {
+                // Traverse up to 3 levels
+                let curr = radio;
+                let depth = 0;
+                while (curr && depth < 3) {
+                  tb = findTextBox(curr);
+                  if (tb) break;
+                  curr = curr.parentElement;
+                  depth++;
+                }
+              }
+              
+              if (tb) {
+                tb.value = val;
+                tb.dispatchEvent(new Event('input', { bubbles: true }));
+                tb.dispatchEvent(new Event('change', { bubbles: true }));
+                return true;
+              }
+              return false;
+            }, [option.id, customValue]);
+            await page.waitForTimeout(500);
+          }
         } catch (clickErr) {
           console.log(`      ⚠️ Failed to click option "${option.text}" for question "${qEntry.question}": ${clickErr.message}`);
           
@@ -484,6 +562,47 @@ Instructions:
         }
       }
     }
+  }
+
+  // Now add any extra specifications as "Other Specs" to increase the listing score
+  try {
+    const filledQuestions = Object.keys(selectedAnswers).map(q => q.toLowerCase());
+    const extraSpecs = [];
+    
+    for (const [key, val] of Object.entries(product.specifications)) {
+      if (!val) continue;
+      // If this spec key was not filled as a question on Page 2
+      if (!filledQuestions.includes(key.toLowerCase())) {
+        extraSpecs.push({ key, val });
+      }
+    }
+    
+    if (extraSpecs.length > 0) {
+      console.log(`   ⚙️  Adding ${extraSpecs.length} extra specifications on Page 2 to increase score...`);
+      for (const spec of extraSpecs) {
+        // Find "+ Add more" link/button
+        const addMoreLocator = page.locator("text='+ Add more', text='Add more', a:has-text('Add more'), span:has-text('Add more')").first();
+        if (await addMoreLocator.count() > 0 && await addMoreLocator.isVisible()) {
+          await addMoreLocator.click();
+          await page.waitForTimeout(1000); // Wait for input fields to render
+          
+          // Get the latest Attribute/Value input fields
+          const attrInputs = page.locator("input[placeholder*='Attribute' i]");
+          const valInputs = page.locator("input[placeholder*='Value' i]");
+          
+          if (await attrInputs.count() > 0 && await valInputs.count() > 0) {
+            const lastIdx = await attrInputs.count() - 1;
+            await attrInputs.nth(lastIdx).fill(spec.key);
+            await page.waitForTimeout(500);
+            await valInputs.nth(lastIdx).fill(spec.val);
+            console.log(`      ✅ Added other spec on Page 2: "${spec.key}" -> "${spec.val}"`);
+            await page.waitForTimeout(1000);
+          }
+        }
+      }
+    }
+  } catch (extraSpecErr) {
+    console.log(`   ⚠️ Failed to add extra specifications on Page 2: ${extraSpecErr.message}`);
   }
 }
 
@@ -605,8 +724,9 @@ async function listProductOnIndiaMart(page, product) {
     }
   }
 
-  if (categoryInput && product.category) {
-    await categoryInput.fill(product.category);
+  const targetCategory = selectedCategory || product.category;
+  if (categoryInput && targetCategory) {
+    await categoryInput.fill(targetCategory);
     await page.waitForTimeout(2000); // Wait for suggestions to load
     
     const suggestionSelectors = [
@@ -823,15 +943,15 @@ async function listProductOnIndiaMart(page, product) {
         
         // Wait for crop popup and click 'Upload Photos' inside it
         try {
-          console.log("      Waiting for crop popup button to become visible...");
-          const cropUploadBtn = page.locator("button:has-text('Upload Photos'), button.Crop_bg1").first();
-          await cropUploadBtn.waitFor({ state: 'visible', timeout: 10000 });
+          console.log("      Waiting for crop popup button to become visible (up to 60 seconds for large images)...");
+          const cropUploadBtn = page.locator("button:has-text('Upload Photos'):visible, button.Crop_bg1:visible").first();
+          await cropUploadBtn.waitFor({ state: 'visible', timeout: 60000 });
           console.log("      Clicking 'Upload Photos' button inside crop popup...");
           await cropUploadBtn.click();
-          console.log("      Clicked! Waiting 4 seconds for processing...");
-          await page.waitForTimeout(4000);
+          console.log("      Clicked! Waiting 6 seconds for processing...");
+          await page.waitForTimeout(6000);
         } catch (e) {
-          console.log("      No crop popup detected or timed out waiting.");
+          console.log("      No crop popup detected or timed out waiting (details: " + e.message + ").");
         }
         break;
       } catch (uploadErr) {}
@@ -841,7 +961,19 @@ async function listProductOnIndiaMart(page, product) {
       try {
         await fileInputs.first().setInputFiles(product.images);
         console.log("      ✅ Selected image files for upload (fallback to first input)");
-        await page.waitForTimeout(3000);
+        
+        // Wait for crop popup and click 'Upload Photos' inside it
+        try {
+          console.log("      Waiting for crop popup button to become visible (fallback, up to 60 seconds)...");
+          const cropUploadBtn = page.locator("button:has-text('Upload Photos'):visible, button.Crop_bg1:visible").first();
+          await cropUploadBtn.waitFor({ state: 'visible', timeout: 60000 });
+          console.log("      Clicking 'Upload Photos' button inside crop popup...");
+          await cropUploadBtn.click();
+          console.log("      Clicked! Waiting 6 seconds for processing...");
+          await page.waitForTimeout(6000);
+        } catch (e) {
+          console.log("      No crop popup detected or timed out waiting in fallback.");
+        }
       } catch (uploadErr) {
         console.log(`      ⚠️ Image upload error: ${uploadErr.message}`);
       }
@@ -924,11 +1056,31 @@ async function listProductOnIndiaMart(page, product) {
 
   // 7. Click Save and Continue to go to Page 2 (Specifications)
   console.log("   Clicking 'Save and Continue'...");
+  
+  // Programmatically dismiss crop popup if visible to avoid blocking the click
+  try {
+    await page.evaluate(() => {
+      const overlays = Array.from(document.querySelectorAll('.popup-imcrp, .Crop_overlay, #im-crop-block'));
+      overlays.forEach(overlay => {
+        overlay.classList.remove('is-visible-imcrp');
+        overlay.style.display = 'none';
+      });
+    });
+  } catch (err) {}
+
   const saveBasicBtn = page.locator('#saveBasic').first();
   let page2Loaded = false;
   
   if (await saveBasicBtn.count() > 0 && await saveBasicBtn.isVisible()) {
-    await saveBasicBtn.click();
+    try {
+      await saveBasicBtn.click();
+    } catch (clickErr) {
+      console.log(`   ⚠️ Playwright click on 'Save and Continue' failed: ${clickErr.message}. Trying JS fallback...`);
+      await page.evaluate(() => {
+        const btn = document.querySelector('#saveBasic');
+        if (btn) btn.click();
+      });
+    }
     console.log("   Clicked 'Save and Continue'! Waiting 6 seconds for Specifications page to load...");
     await page.waitForTimeout(6000);
     
@@ -966,10 +1118,29 @@ async function listProductOnIndiaMart(page, product) {
       return true;
     }
 
+    // Dismiss crop popup programmatically just in case
+    try {
+      await page.evaluate(() => {
+        const overlays = Array.from(document.querySelectorAll('.popup-imcrp, .Crop_overlay, #im-crop-block'));
+        overlays.forEach(overlay => {
+          overlay.classList.remove('is-visible-imcrp');
+          overlay.style.display = 'none';
+        });
+      });
+    } catch (err) {}
+
     // Live Submit on Page 2
     const finishBtn = page.locator('#save_isq').first();
     if (await finishBtn.count() > 0 && await finishBtn.isVisible()) {
-      await finishBtn.click();
+      try {
+        await finishBtn.click();
+      } catch (clickErr) {
+        console.log(`   ⚠️ Playwright click on Finish button failed: ${clickErr.message}. Trying JS fallback...`);
+        await page.evaluate(() => {
+          const btn = document.querySelector('#save_isq');
+          if (btn) btn.click();
+        });
+      }
       console.log("   🚀 Clicked Finish button on Page 2.");
       await page.waitForTimeout(5000);
       return true;
@@ -1009,7 +1180,15 @@ async function listProductOnIndiaMart(page, product) {
       }
     }
     if (submitBtn) {
-      await submitBtn.click();
+      try {
+        await submitBtn.click();
+      } catch (clickErr) {
+        console.log(`   ⚠️ Playwright click on Submit button failed: ${clickErr.message}. Trying JS fallback...`);
+        await page.evaluate((btnSel) => {
+          const btn = document.querySelector(btnSel);
+          if (btn) btn.click();
+        }, submitBtn);
+      }
       console.log("   🚀 Clicked Submit/Save button on Page 1.");
       await page.waitForTimeout(5000);
       return true;
