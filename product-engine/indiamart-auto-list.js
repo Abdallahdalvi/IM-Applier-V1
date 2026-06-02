@@ -952,20 +952,25 @@ async function listProductOnIndiaMart(page, product) {
           
           console.log("      Waiting for 'Upload Photos' button to become enabled (up to 10 seconds)...");
           try {
-            await page.waitForFunction(() => {
-              const btn = Array.from(document.querySelectorAll("button")).find(b => {
-                const text = b.innerText || "";
-                return (text.includes("Upload Photos") || b.classList.contains("Crop_bg1")) && b.getBoundingClientRect().width > 0;
-              });
-              return btn && !btn.disabled;
-            }, { timeout: 10000 });
-            console.log("      'Upload Photos' button is now enabled.");
+            let isEnabled = false;
+            for (let k = 0; k < 10; k++) {
+              if (await cropUploadBtn.isEnabled()) {
+                isEnabled = true;
+                break;
+              }
+              await page.waitForTimeout(1000);
+            }
+            if (isEnabled) {
+              console.log("      'Upload Photos' button is now enabled.");
+            } else {
+              console.log("      Button did not become enabled in 10 seconds, proceeding anyway.");
+            }
           } catch (enabledErr) {
-            console.log("      Timed out waiting for button to enable, proceeding anyway: " + enabledErr.message);
+            console.log("      Error checking if button is enabled: " + enabledErr.message);
           }
           
           console.log("      Clicking 'Upload Photos' button inside crop popup...");
-          await cropUploadBtn.click({ timeout: 20000 });
+          await cropUploadBtn.click({ timeout: 10000 });
           console.log("      Clicked! Waiting 10 seconds for crop popup to save and close...");
           await page.waitForTimeout(10000);
         } catch (e) {
@@ -991,20 +996,25 @@ async function listProductOnIndiaMart(page, product) {
           
           console.log("      Waiting for 'Upload Photos' button to become enabled (fallback, up to 10 seconds)...");
           try {
-            await page.waitForFunction(() => {
-              const btn = Array.from(document.querySelectorAll("button")).find(b => {
-                const text = b.innerText || "";
-                return (text.includes("Upload Photos") || b.classList.contains("Crop_bg1")) && b.getBoundingClientRect().width > 0;
-              });
-              return btn && !btn.disabled;
-            }, { timeout: 10000 });
-            console.log("      'Upload Photos' button is now enabled (fallback).");
+            let isEnabled = false;
+            for (let k = 0; k < 10; k++) {
+              if (await cropUploadBtn.isEnabled()) {
+                isEnabled = true;
+                break;
+              }
+              await page.waitForTimeout(1000);
+            }
+            if (isEnabled) {
+              console.log("      'Upload Photos' button is now enabled (fallback).");
+            } else {
+              console.log("      Button did not become enabled in 10 seconds, proceeding anyway (fallback).");
+            }
           } catch (enabledErr) {
-            console.log("      Timed out waiting for button to enable in fallback, proceeding anyway: " + enabledErr.message);
+            console.log("      Error checking if button is enabled in fallback: " + enabledErr.message);
           }
           
           console.log("      Clicking 'Upload Photos' button inside crop popup (fallback)...");
-          await cropUploadBtn.click({ timeout: 20000 });
+          await cropUploadBtn.click({ timeout: 10000 });
           console.log("      Clicked! Waiting 10 seconds for crop popup to save and close (fallback)...");
           await page.waitForTimeout(10000);
         } catch (e) {
