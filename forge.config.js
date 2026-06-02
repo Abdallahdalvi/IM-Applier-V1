@@ -73,6 +73,7 @@ module.exports = {
           'product-engine',
           'brochures',
           'src',
+          'node_modules',
           '.env'
         ];
         for (const item of toCopy) {
