@@ -72,6 +72,7 @@ module.exports = {
           'indiamart-product-discovery.js',
           'product-engine',
           'brochures',
+          'src',
           '.env'
         ];
         for (const item of toCopy) {
