@@ -944,7 +944,7 @@ async function listProductOnIndiaMart(page, product) {
         // Wait for crop popup and click 'Upload Photos' inside it
         try {
           console.log("      Waiting for crop popup button to become visible (up to 10 seconds)...");
-          const cropUploadBtn = page.locator(".popup-imcrp button:has-text('Upload Photos'):visible, .Crop_overlay button:has-text('Upload Photos'):visible, #im-crop-block button:has-text('Upload Photos'):visible, button.Crop_bg1:visible").first();
+          const cropUploadBtn = page.locator("#im-crop-block button.Crop_bg1:visible, .popup-imcrp button.Crop_bg1:visible, #im-crop-block button:has-text('Upload Photos'):visible, .popup-imcrp button:has-text('Upload Photos'):visible").first();
           await cropUploadBtn.waitFor({ state: 'visible', timeout: 10000 });
           
           console.log("      Crop popup visible. Waiting 10 seconds for images to be fully uploaded and processed...");
@@ -990,7 +990,7 @@ async function listProductOnIndiaMart(page, product) {
         // Wait for crop popup and click 'Upload Photos' inside it
         try {
           console.log("      Waiting for crop popup button to become visible (fallback, up to 10 seconds)...");
-          const cropUploadBtn = page.locator(".popup-imcrp button:has-text('Upload Photos'):visible, .Crop_overlay button:has-text('Upload Photos'):visible, #im-crop-block button:has-text('Upload Photos'):visible, button.Crop_bg1:visible").first();
+          const cropUploadBtn = page.locator("#im-crop-block button.Crop_bg1:visible, .popup-imcrp button.Crop_bg1:visible, #im-crop-block button:has-text('Upload Photos'):visible, .popup-imcrp button:has-text('Upload Photos'):visible").first();
           await cropUploadBtn.waitFor({ state: 'visible', timeout: 10000 });
           
           console.log("      Crop popup visible (fallback). Waiting 10 seconds for images to be fully uploaded and processed...");
