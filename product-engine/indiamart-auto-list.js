@@ -944,7 +944,7 @@ async function listProductOnIndiaMart(page, product) {
         // Wait for crop popup and click 'Upload Photos' inside it
         try {
           console.log("      Waiting for crop popup button to become visible (up to 10 seconds)...");
-          const cropUploadBtn = page.locator("button:has-text('Upload Photos'):visible, button.Crop_bg1:visible").first();
+          const cropUploadBtn = page.locator(".popup-imcrp button:has-text('Upload Photos'):visible, .Crop_overlay button:has-text('Upload Photos'):visible, #im-crop-block button:has-text('Upload Photos'):visible, button.Crop_bg1:visible").first();
           await cropUploadBtn.waitFor({ state: 'visible', timeout: 10000 });
           
           console.log("      Crop popup visible. Waiting 10 seconds for images to be fully uploaded and processed...");
@@ -954,10 +954,12 @@ async function listProductOnIndiaMart(page, product) {
           try {
             let isEnabled = false;
             for (let k = 0; k < 10; k++) {
-              if (await cropUploadBtn.isEnabled()) {
-                isEnabled = true;
-                break;
-              }
+              try {
+                if (await cropUploadBtn.isEnabled({ timeout: 1000 })) {
+                  isEnabled = true;
+                  break;
+                }
+              } catch (err) {}
               await page.waitForTimeout(1000);
             }
             if (isEnabled) {
@@ -988,7 +990,7 @@ async function listProductOnIndiaMart(page, product) {
         // Wait for crop popup and click 'Upload Photos' inside it
         try {
           console.log("      Waiting for crop popup button to become visible (fallback, up to 10 seconds)...");
-          const cropUploadBtn = page.locator("button:has-text('Upload Photos'):visible, button.Crop_bg1:visible").first();
+          const cropUploadBtn = page.locator(".popup-imcrp button:has-text('Upload Photos'):visible, .Crop_overlay button:has-text('Upload Photos'):visible, #im-crop-block button:has-text('Upload Photos'):visible, button.Crop_bg1:visible").first();
           await cropUploadBtn.waitFor({ state: 'visible', timeout: 10000 });
           
           console.log("      Crop popup visible (fallback). Waiting 10 seconds for images to be fully uploaded and processed...");
@@ -998,10 +1000,12 @@ async function listProductOnIndiaMart(page, product) {
           try {
             let isEnabled = false;
             for (let k = 0; k < 10; k++) {
-              if (await cropUploadBtn.isEnabled()) {
-                isEnabled = true;
-                break;
-              }
+              try {
+                if (await cropUploadBtn.isEnabled({ timeout: 1000 })) {
+                  isEnabled = true;
+                  break;
+                }
+              } catch (err) {}
               await page.waitForTimeout(1000);
             }
             if (isEnabled) {
