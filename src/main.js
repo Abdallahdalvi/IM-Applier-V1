@@ -226,9 +226,14 @@ function runPipeline(steps) {
     send('bot:log', { type: 'header', text: `\n${'─'.repeat(40)}\n${step.label}\n${'─'.repeat(40)}\n` });
 
     const electronPath = process.execPath;
+    const nodeModulesPath = path.join(PROJECT_ROOT, 'node_modules');
     const proc = spawn(electronPath, step.args, {
       cwd: PROJECT_ROOT,
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+      env: { 
+        ...process.env, 
+        ELECTRON_RUN_AS_NODE: '1',
+        NODE_PATH: nodeModulesPath
+      },
       shell: false
     });
     currentProc = proc;

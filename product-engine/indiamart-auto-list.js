@@ -943,14 +943,14 @@ async function listProductOnIndiaMart(page, product) {
         
         // Wait for crop popup and click 'Upload Photos' inside it
         try {
-          console.log("      Waiting for crop popup button to become visible (up to 60 seconds)...");
+          console.log("      Waiting for crop popup button to become visible (up to 10 seconds)...");
           const cropUploadBtn = page.locator("button:has-text('Upload Photos'):visible, button.Crop_bg1:visible").first();
-          await cropUploadBtn.waitFor({ state: 'visible', timeout: 60000 });
+          await cropUploadBtn.waitFor({ state: 'visible', timeout: 10000 });
           
-          console.log("      Crop popup visible. Waiting 60 seconds for images to be fully uploaded and processed...");
-          await page.waitForTimeout(60000);
+          console.log("      Crop popup visible. Waiting 10 seconds for images to be fully uploaded and processed...");
+          await page.waitForTimeout(10000);
           
-          console.log("      Waiting for 'Upload Photos' button to become enabled...");
+          console.log("      Waiting for 'Upload Photos' button to become enabled (up to 10 seconds)...");
           try {
             await page.waitForFunction(() => {
               const btn = Array.from(document.querySelectorAll("button")).find(b => {
@@ -958,7 +958,7 @@ async function listProductOnIndiaMart(page, product) {
                 return (text.includes("Upload Photos") || b.classList.contains("Crop_bg1")) && b.getBoundingClientRect().width > 0;
               });
               return btn && !btn.disabled;
-            }, { timeout: 60000 });
+            }, { timeout: 10000 });
             console.log("      'Upload Photos' button is now enabled.");
           } catch (enabledErr) {
             console.log("      Timed out waiting for button to enable, proceeding anyway: " + enabledErr.message);
@@ -982,14 +982,14 @@ async function listProductOnIndiaMart(page, product) {
         
         // Wait for crop popup and click 'Upload Photos' inside it
         try {
-          console.log("      Waiting for crop popup button to become visible (fallback, up to 60 seconds)...");
+          console.log("      Waiting for crop popup button to become visible (fallback, up to 10 seconds)...");
           const cropUploadBtn = page.locator("button:has-text('Upload Photos'):visible, button.Crop_bg1:visible").first();
-          await cropUploadBtn.waitFor({ state: 'visible', timeout: 60000 });
+          await cropUploadBtn.waitFor({ state: 'visible', timeout: 10000 });
           
-          console.log("      Crop popup visible (fallback). Waiting 60 seconds for images to be fully uploaded and processed...");
-          await page.waitForTimeout(60000);
+          console.log("      Crop popup visible (fallback). Waiting 10 seconds for images to be fully uploaded and processed...");
+          await page.waitForTimeout(10000);
           
-          console.log("      Waiting for 'Upload Photos' button to become enabled (fallback)...");
+          console.log("      Waiting for 'Upload Photos' button to become enabled (fallback, up to 10 seconds)...");
           try {
             await page.waitForFunction(() => {
               const btn = Array.from(document.querySelectorAll("button")).find(b => {
@@ -997,7 +997,7 @@ async function listProductOnIndiaMart(page, product) {
                 return (text.includes("Upload Photos") || b.classList.contains("Crop_bg1")) && b.getBoundingClientRect().width > 0;
               });
               return btn && !btn.disabled;
-            }, { timeout: 60000 });
+            }, { timeout: 10000 });
             console.log("      'Upload Photos' button is now enabled (fallback).");
           } catch (enabledErr) {
             console.log("      Timed out waiting for button to enable in fallback, proceeding anyway: " + enabledErr.message);
@@ -1302,10 +1302,19 @@ async function listProductOnIndiaMart(page, product) {
       console.log("❌  Listing Error:", e.message);
       stats.errors++;
       skipReasons[product.id] = e.message;
+      if (e.message.includes("closed") || e.message.includes("Target page, context or browser has been closed")) {
+        console.log("🛑 Browser connection was closed. Stopping listing runner.");
+        break;
+      }
     }
 
     // Wait a brief period between products
-    await page.waitForTimeout(4000);
+    try {
+      await page.waitForTimeout(4000);
+    } catch (waitErr) {
+      console.log("🛑 Failed to wait between products (browser might be closed):", waitErr.message);
+      break;
+    }
   }
 
   savePostedProducts(posted);
