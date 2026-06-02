@@ -1,5 +1,7 @@
 const { FusesPlugin } = require('@electron-forge/plugin-fuses');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
+const fs = require('fs');
+const path = require('path');
 
 module.exports = {
   packagerConfig: {
@@ -58,4 +60,31 @@ module.exports = {
       [FuseV1Options.OnlyLoadAppFromAsar]: false,
     }),
   ],
+  hooks: {
+    postPackage: async (forgeConfig, packageResult) => {
+      console.log('   Post-Package hook: Copying pipeline scripts and brochures to packaged app...');
+      for (const outputPath of packageResult.outputPaths) {
+        const appPath = path.join(outputPath, 'resources', 'app');
+        if (!fs.existsSync(appPath)) {
+          fs.mkdirSync(appPath, { recursive: true });
+        }
+        const toCopy = [
+          'indiamart-product-discovery.js',
+          'product-engine',
+          'brochures',
+          '.env'
+        ];
+        for (const item of toCopy) {
+          const srcPath = path.join(__dirname, item);
+          const destPath = path.join(appPath, item);
+          if (fs.existsSync(srcPath)) {
+            console.log(`      Copying ${item} -> ${destPath}`);
+            fs.cpSync(srcPath, destPath, { recursive: true, force: true });
+          } else {
+            console.log(`      ⚠️ Warning: ${item} not found at ${srcPath}`);
+          }
+        }
+      }
+    }
+  }
 };
