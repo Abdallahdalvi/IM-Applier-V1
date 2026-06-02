@@ -229,7 +229,7 @@ function runPipeline(steps) {
     const proc = spawn(electronPath, step.args, {
       cwd: PROJECT_ROOT,
       env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
-      shell: true
+      shell: false
     });
     currentProc = proc;
 
