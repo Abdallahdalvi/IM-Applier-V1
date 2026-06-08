@@ -270,13 +270,13 @@ clearBtn.addEventListener('click', () => {
 fetchModelsBtn.addEventListener('click', async () => {
   const key = openaiApiKey.value.trim();
   if (!key) {
-    log('⚠️ Please enter an OpenAI API Key first.', 'warn');
+    log('⚠️ Please enter an API Key first.', 'warn');
     return;
   }
   
   fetchModelsBtn.disabled = true;
   fetchModelsBtn.textContent = '⏳ ...';
-  log('🔄 Fetching live chat models from OpenAI...', 'info');
+  log('🔄 Fetching live chat models from API...', 'info');
   
   try {
     const list = await window.dalvi.fetchModels(key);
@@ -288,7 +288,7 @@ fetchModelsBtn.addEventListener('click', async () => {
         opt.textContent = m;
         openaiModel.appendChild(opt);
       });
-      log(`✅ Successfully loaded ${list.length} chat models from OpenAI`, 'success');
+      log(`✅ Successfully loaded ${list.length} chat models from API`, 'success');
     } else {
       log('⚠️ No chat models found in response.', 'warn');
     }

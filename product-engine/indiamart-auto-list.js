@@ -8,10 +8,11 @@
  */
 
 const { chromium } = require("playwright");
-const fs = require("fs");
+const fs = require('fs');
+const { execSync } = require('child_process');
 const path = require("path");
 
-require("dotenv").config();
+// require("dotenv").config();
 
 const FILTERED_QUEUE_PATH = path.join(__dirname, "../product-queue-filtered.json");
 const POSTED_PRODUCTS_PATH = path.join(__dirname, "posted-products.json");
@@ -89,7 +90,8 @@ function saveSkipReasons(obj) {
  */
 async function findInputByLabelText(page, labelText, inputType = "input, textarea, select") {
   return await page.evaluateHandle(([text, tagSelectors]) => {
-    const labels = Array.from(document.querySelectorAll("label, span, div, p"));
+    const container = document.getElementById('editProductPopup') || document.body;
+    const labels = Array.from(container.querySelectorAll("label, span, div, p"));
     const matchingLabel = labels.find(el => {
       const txt = el.innerText?.trim().toLowerCase() || "";
       return txt === text.toLowerCase() || txt.includes(text.toLowerCase());
@@ -100,7 +102,7 @@ async function findInputByLabelText(page, labelText, inputType = "input, textare
     // 1. Check if the label has a 'for' attribute linking to an input
     const forAttr = matchingLabel.getAttribute("for");
     if (forAttr) {
-      const el = document.getElementById(forAttr);
+      const el = container.querySelector(`#${forAttr}`) || document.getElementById(forAttr);
       if (el) return el;
     }
 
@@ -111,7 +113,7 @@ async function findInputByLabelText(page, labelText, inputType = "input, textare
     // 3. Search siblings or adjacent elements
     let parent = matchingLabel.parentElement;
     let depth = 0;
-    while (parent && depth < 3) {
+    while (parent && parent !== container && depth < 3) {
       const siblingInputs = Array.from(parent.querySelectorAll(tagSelectors));
       const targetInput = siblingInputs.find(input => input !== matchingLabel);
       if (targetInput) return targetInput;
@@ -664,14 +666,14 @@ async function listProductOnIndiaMart(page, product) {
 
   // Look for Product Name field specifically in the form
   const nameSelectors = [
-    "#nameOfProduct",
-    "form input[name='product_name']",
-    "form input[name='name']",
-    "input[name='product_name']",
-    "input[name='product_add_name']",
-    "input[placeholder*='Product Name' i]",
-    "input[placeholder*='Product/Service Name' i]",
-    "input[placeholder*='Name of Product' i]"
+    "#editProductPopup #nameOfProduct",
+    "#editProductPopup form input[name='product_name']",
+    "#editProductPopup form input[name='name']",
+    "#editProductPopup input[name='product_name']",
+    "#editProductPopup input[name='product_add_name']",
+    "#editProductPopup input[placeholder*='Product Name' i]",
+    "#editProductPopup input[placeholder*='Product/Service Name' i]",
+    "#editProductPopup input[placeholder*='Name of Product' i]"
   ];
 
   let nameInput = null;
@@ -703,9 +705,9 @@ async function listProductOnIndiaMart(page, product) {
 
   // 2. Select Category (usually triggers suggestions)
   const categorySelectors = [
-    "input[name='category']",
-    "input[placeholder*='category' i]",
-    "input[id*='category']"
+    "#editProductPopup input[name='category']",
+    "#editProductPopup input[placeholder*='category' i]",
+    "#editProductPopup input[id*='category']"
   ];
 
   let categoryInput = null;
@@ -761,11 +763,11 @@ async function listProductOnIndiaMart(page, product) {
   const targetPrice = fixedPrice !== null && !isNaN(fixedPrice) ? fixedPrice : product.price;
   if (targetPrice) {
     const priceSelectors = [
-      "#priceOfProduct",
-      "input[name='price']",
-      "input[name='selling_price']",
-      "input[id*='price']",
-      "input[placeholder*='Price' i]"
+      "#editProductPopup #priceOfProduct",
+      "#editProductPopup input[name='price']",
+      "#editProductPopup input[name='selling_price']",
+      "#editProductPopup input[id*='price']",
+      "#editProductPopup input[placeholder*='Price' i]"
     ];
 
     let priceInput = null;
@@ -791,33 +793,40 @@ async function listProductOnIndiaMart(page, product) {
     }
 
     // Unit Suggestion Chips
+    // NOTE: Do NOT press Enter on the name input — that submits the header search form
+    // and triggers a native alert "Please enter text to search." which blocks execution.
     if (product.unit) {
       try {
-        console.log("   Triggering unit suggestions...");
-        await nameInput.focus();
-        await page.keyboard.press("Enter");
-        await page.waitForTimeout(2000);
+        console.log("   Triggering unit suggestions by clicking #unitOfProduct...");
+        // Click the unit input to trigger the suggestion dropdown (avoids Enter on name)
+        const unitInput = page.locator('#editProductPopup #unitOfProduct').first();
+        if (await unitInput.count() > 0 && await unitInput.isVisible()) {
+          await unitInput.evaluate(node => node.disabled = false);
+          await unitInput.click({ force: true, timeout: 2000 }).catch(() => {});
+          await page.waitForTimeout(2000);
+        }
         
         const targetUnit = product.unit;
-        const unitChip = page.locator(`li[title='${targetUnit}'], #unitSugg li:has-text('${targetUnit}')`).first();
+        const unitChip = page.locator(`#editProductPopup li[title='${targetUnit}'], #editProductPopup #unitSugg li:has-text('${targetUnit}')`).first();
         if (await unitChip.count() > 0 && await unitChip.isVisible()) {
           await unitChip.click();
           console.log(`   ✅ Clicked unit chip: "${targetUnit}"`);
         } else {
           console.log("   Unit chip not found, clicking Other...");
-          const otherChip = page.locator("li[title='Other'], #unitSugg li:has-text('Other')").first();
+          const otherChip = page.locator("#editProductPopup li[title='Other'], #editProductPopup #unitSugg li:has-text('Other')").first();
           if (await otherChip.count() > 0 && await otherChip.isVisible()) {
             await otherChip.click();
             await page.waitForTimeout(1000);
           }
-          await page.evaluate((u) => {
-            const el = document.getElementById('unitOfProduct');
+          await page.evaluate(([u]) => {
+            const container = document.getElementById('editProductPopup') || document;
+            const el = container.querySelector('#unitOfProduct');
             if (el) {
               el.value = u;
               el.dispatchEvent(new Event('input', { bubbles: true }));
               el.dispatchEvent(new Event('change', { bubbles: true }));
             }
-          }, targetUnit);
+          }, [targetUnit]);
           console.log(`   ✅ Set custom unit: "${targetUnit}"`);
         }
         await page.waitForTimeout(1000);
@@ -831,7 +840,7 @@ async function listProductOnIndiaMart(page, product) {
   if (product.description) {
     try {
       console.log("   Filling Description Rich-Text Editor Iframe...");
-      const iframeLocator = page.frameLocator('#item_desc_ifr');
+      const iframeLocator = page.frameLocator('#editProductPopup #item_desc_ifr');
       const bodyLocator = iframeLocator.locator('body');
       await bodyLocator.waitFor({ state: 'visible', timeout: 5000 });
       await bodyLocator.fill(product.description);
@@ -840,10 +849,10 @@ async function listProductOnIndiaMart(page, product) {
     } catch (e) {
       console.log("   ⚠️ Rich-text description iframe failed, falling back to simple textarea...");
       const descSelectors = [
-        "textarea[name='description']",
-        "textarea[name='desc']",
-        "textarea[id*='desc']",
-        "textarea[placeholder*='description' i]"
+        "#editProductPopup textarea[name='description']",
+        "#editProductPopup textarea[name='desc']",
+        "#editProductPopup textarea[id*='desc']",
+        "#editProductPopup textarea[placeholder*='description' i]"
       ];
       let descTextarea = null;
       for (const sel of descSelectors) {
@@ -871,11 +880,11 @@ async function listProductOnIndiaMart(page, product) {
       try {
         // Find "Add Specification" button to create a new key-value row
         const addSpecBtnSelectors = [
-          "button:has-text('Add Specification')",
-          "button:has-text('Add Attribute')",
-          "a:has-text('Add Specification')",
-          ".add-spec-btn",
-          ".add-attribute-btn"
+          "#editProductPopup button:has-text('Add Specification')",
+          "#editProductPopup button:has-text('Add Attribute')",
+          "#editProductPopup a:has-text('Add Specification')",
+          "#editProductPopup .add-spec-btn",
+          "#editProductPopup .add-attribute-btn"
         ];
 
         let addBtn = null;
@@ -893,8 +902,8 @@ async function listProductOnIndiaMart(page, product) {
 
           // Get the last specification row fields
           // Usually name/value pair inputs inside the table or repeating container
-          const keyInputs = page.locator("input[placeholder*='Spec' i], input[placeholder*='Attribute' i], input[id*='key'], input[name*='key']");
-          const valInputs = page.locator("input[placeholder*='Value' i], input[placeholder*='Val' i], input[id*='val'], input[name*='val']");
+          const keyInputs = page.locator("#editProductPopup input[placeholder*='Spec' i], #editProductPopup input[placeholder*='Attribute' i], #editProductPopup input[id*='key'], #editProductPopup input[name*='key']");
+          const valInputs = page.locator("#editProductPopup input[placeholder*='Value' i], #editProductPopup input[placeholder*='Val' i], #editProductPopup input[id*='val'], #editProductPopup input[name*='val']");
 
           if (await keyInputs.count() && await valInputs.count()) {
             const lastIdx = await keyInputs.count() - 1;
@@ -918,124 +927,164 @@ async function listProductOnIndiaMart(page, product) {
   }
 
   // 6. Upload Product Images
+  // Uses #multipleImageUploader directly — this is IndiaMART's dedicated multi-image hidden input.
+  // Targeting it by ID avoids accidentally using #changePrimaryImage (single-image) or
+  // #changeImageIMCropperHidden (internal cropper input), both of which don't trigger the crop popup.
   if (product.images && product.images.length > 0) {
-    console.log(`   📸 Uploading ${product.images.length} product images...`);
-    const fileInputs = page.locator("input[type='file']");
-    const fileInputsCount = await fileInputs.count();
+    // 💥 CRITICAL FIX: Compress images using PowerShell to prevent Chromium OOM crash!
+    const compressedImages = [];
+    const compressScript = path.join(__dirname, "../compress_image.ps1");
+    const compressedDir = path.join(__dirname, "../brochures/compressed");
+    if (!fs.existsSync(compressedDir)) fs.mkdirSync(compressedDir, { recursive: true });
+    
+    for (const imgPath of product.images) {
+      if (!fs.existsSync(imgPath)) continue;
+      const stats = fs.statSync(imgPath);
+      // If image is larger than 1MB, compress it
+      if (stats.size > 1024 * 1024 && fs.existsSync(compressScript)) {
+        const ext = path.extname(imgPath);
+        const base = path.basename(imgPath, ext);
+        const dest = path.join(compressedDir, `${base}_compressed.jpg`);
+        try {
+          execSync(`powershell -ExecutionPolicy Bypass -File "${compressScript}" -Source "${imgPath}" -Destination "${dest}" -MaxWidth 800`);
+          if (fs.existsSync(dest)) {
+            compressedImages.push(dest);
+            continue;
+          }
+        } catch (e) {
+          console.log(`      ⚠️ Failed to compress ${base}: ${e.message}`);
+        }
+      }
+      compressedImages.push(imgPath); // fallback to original
+    }
+
+    const imagesToUpload = compressedImages;
+    console.log(`   📸 Uploading ${imagesToUpload.length} product images (compressed to prevent memory crash)...`);
     let uploadedImages = false;
 
-    for (let j = 0; j < fileInputsCount; j++) {
-      const input = fileInputs.nth(j);
+    // --- Primary: target the known multi-image uploader input directly ---
+    const multiUploader = page.locator('#multipleImageUploader').first();
+    if (await multiUploader.count() > 0) {
       try {
-        const accept = await input.getAttribute("accept") || "";
-        const name = await input.getAttribute("name") || "";
-        const id = await input.getAttribute("id") || "";
-        
-        // Skip if it specifically targets PDF or document
-        if (accept.includes("pdf") || name.toLowerCase().includes("pdf") || name.toLowerCase().includes("brochure") || id.toLowerCase().includes("pdf")) {
-          continue;
-        }
-
-        // Upload images to this input
-        await input.setInputFiles(product.images);
-        console.log(`      ✅ Selected ${product.images.length} image files for upload`);
+        await multiUploader.setInputFiles(imagesToUpload);
+        console.log(`      ✅ Selected ${imagesToUpload.length} image files via #multipleImageUploader`);
         uploadedImages = true;
-        
-        // Wait for crop popup and click 'Upload Photos' inside it
+
+        // Wait for crop popup and click 'Upload Photo(s)' inside it
         try {
-          console.log("      Waiting for crop popup button to become visible (up to 10 seconds)...");
-          const cropUploadBtn = page.locator("#im-crop-block button.Crop_bg1:visible, .popup-imcrp button.Crop_bg1:visible, #im-crop-block button:has-text('Upload Photos'):visible, .popup-imcrp button:has-text('Upload Photos'):visible").first();
-          await cropUploadBtn.waitFor({ state: 'visible', timeout: 10000 });
-          
-          console.log("      Crop popup visible. Waiting 10 seconds for images to be fully uploaded and processed...");
-          await page.waitForTimeout(10000);
-          
-          console.log("      Waiting for 'Upload Photos' button to become enabled (up to 10 seconds)...");
-          try {
-            let isEnabled = false;
-            for (let k = 0; k < 10; k++) {
-              try {
-                if (await cropUploadBtn.isEnabled({ timeout: 1000 })) {
-                  isEnabled = true;
-                  break;
-                }
-              } catch (err) {}
-              await page.waitForTimeout(1000);
-            }
-            if (isEnabled) {
-              console.log("      'Upload Photos' button is now enabled.");
-            } else {
-              console.log("      Button did not become enabled in 10 seconds, proceeding anyway.");
-            }
-          } catch (enabledErr) {
-            console.log("      Error checking if button is enabled: " + enabledErr.message);
+          console.log("      Waiting for crop popup to become visible (up to 2 seconds)...");
+          // The button inside the cropper reads "Upload Photo" (singular) not "Upload Photos"
+          const cropUploadBtn = page.locator(
+            "#im-crop-block button.Crop_bg1, .popup-imcrp button.Crop_bg1, " +
+            "#im-crop-block button:has-text('Upload Photo'), .popup-imcrp button:has-text('Upload Photo')"
+          ).first();
+          await cropUploadBtn.waitFor({ state: 'visible', timeout: 2000 });
+
+          const cropContainer = page.locator('#im-crop-block, .popup-imcrp').first();
+          if (await cropContainer.count() > 0 && await cropContainer.isVisible({ timeout: 2000 })) {
+            console.log("      Crop popup visible. Waiting 5 seconds for images to load in cropper...");
+            await page.waitForTimeout(5000);
+
+          console.log("      Waiting for 'Upload Photo' button to become enabled (up to 10 seconds)...");
+          let isEnabled = false;
+          for (let k = 0; k < 10; k++) {
+            try {
+              if (await cropUploadBtn.isEnabled({ timeout: 1000 })) {
+                isEnabled = true;
+                break;
+              }
+            } catch (err) {}
+            await page.waitForTimeout(1000);
           }
-          
-          console.log("      Clicking 'Upload Photos' button inside crop popup...");
+          if (isEnabled) {
+            console.log("      'Upload Photo' button is now enabled.");
+          } else {
+            console.log("      Button did not become enabled in 10 seconds, proceeding anyway.");
+          }
+
+          console.log("      Clicking 'Upload Photo' button inside crop popup...");
           await cropUploadBtn.click({ timeout: 10000 });
-          console.log("      Clicked! Waiting 10 seconds for crop popup to save and close...");
-          await page.waitForTimeout(10000);
+            console.log("      Clicked! Waiting 5 seconds for crop popup to close and images to be committed...");
+            await page.waitForTimeout(5000);
+          } else {
+            console.log("      No crop popup detected.");
+          }
         } catch (e) {
           console.log("      No crop popup detected or timed out waiting (details: " + e.message + ").");
         }
-        break;
-      } catch (uploadErr) {}
+      } catch (uploadErr) {
+        console.log(`      ⚠️ #multipleImageUploader upload error: ${uploadErr.message}`);
+        uploadedImages = false;
+      }
     }
 
-    if (!uploadedImages && fileInputsCount > 0) {
-      try {
-        await fileInputs.first().setInputFiles(product.images);
-        console.log("      ✅ Selected image files for upload (fallback to first input)");
-        
-        // Wait for crop popup and click 'Upload Photos' inside it
+    // --- Fallback: scan all file inputs if the direct selector failed ---
+    if (!uploadedImages) {
+      const fileInputs = page.locator("input[type='file']");
+      const fileInputsCount = await fileInputs.count();
+      for (let j = 0; j < fileInputsCount; j++) {
+        const input = fileInputs.nth(j);
         try {
-          console.log("      Waiting for crop popup button to become visible (fallback, up to 10 seconds)...");
-          const cropUploadBtn = page.locator("#im-crop-block button.Crop_bg1:visible, .popup-imcrp button.Crop_bg1:visible, #im-crop-block button:has-text('Upload Photos'):visible, .popup-imcrp button:has-text('Upload Photos'):visible").first();
-          await cropUploadBtn.waitFor({ state: 'visible', timeout: 10000 });
-          
-          console.log("      Crop popup visible (fallback). Waiting 10 seconds for images to be fully uploaded and processed...");
-          await page.waitForTimeout(10000);
-          
-          console.log("      Waiting for 'Upload Photos' button to become enabled (fallback, up to 10 seconds)...");
+          const accept = await input.getAttribute("accept") || "";
+          const name = await input.getAttribute("name") || "";
+          const id = await input.getAttribute("id") || "";
+
+          // Skip PDF/brochure inputs and the single-file primary-only inputs
+          if (
+            accept.includes("pdf") ||
+            name.toLowerCase().includes("pdf") ||
+            name.toLowerCase().includes("brochure") ||
+            id.toLowerCase().includes("pdf") ||
+            id === "changePrimaryImage" ||
+            id === "changeImageIMCropperHidden"
+          ) continue;
+
+          await input.setInputFiles(imagesToUpload);
+          console.log(`      ✅ Selected ${imagesToUpload.length} image files via fallback input #${j}`);
+          uploadedImages = true;
+
           try {
+            console.log("      Waiting for crop popup (fallback, up to 10 seconds)...");
+            const cropUploadBtn = page.locator(
+              "#im-crop-block button.Crop_bg1, .popup-imcrp button.Crop_bg1, " +
+              "#im-crop-block button:has-text('Upload Photo'), .popup-imcrp button:has-text('Upload Photo')"
+            ).first();
+            await cropUploadBtn.waitFor({ state: 'visible', timeout: 10000 });
+
+            await page.waitForTimeout(10000);
+
             let isEnabled = false;
             for (let k = 0; k < 10; k++) {
               try {
-                if (await cropUploadBtn.isEnabled({ timeout: 1000 })) {
-                  isEnabled = true;
-                  break;
-                }
+                if (await cropUploadBtn.isEnabled({ timeout: 1000 })) { isEnabled = true; break; }
               } catch (err) {}
               await page.waitForTimeout(1000);
             }
-            if (isEnabled) {
-              console.log("      'Upload Photos' button is now enabled (fallback).");
-            } else {
-              console.log("      Button did not become enabled in 10 seconds, proceeding anyway (fallback).");
-            }
-          } catch (enabledErr) {
-            console.log("      Error checking if button is enabled in fallback: " + enabledErr.message);
+
+            await cropUploadBtn.click({ timeout: 10000 });
+            console.log("      Clicked 'Upload Photo' (fallback). Waiting 10 seconds...");
+            await page.waitForTimeout(10000);
+          } catch (e) {
+            console.log("      No crop popup in fallback (details: " + e.message + ").");
           }
-          
-          console.log("      Clicking 'Upload Photos' button inside crop popup (fallback)...");
-          await cropUploadBtn.click({ timeout: 10000 });
-          console.log("      Clicked! Waiting 10 seconds for crop popup to save and close (fallback)...");
-          await page.waitForTimeout(10000);
-        } catch (e) {
-          console.log("      No crop popup detected or timed out waiting in fallback (details: " + e.message + ").");
-        }
-      } catch (uploadErr) {
-        console.log(`      ⚠️ Image upload error: ${uploadErr.message}`);
+          break;
+        } catch (uploadErr) {}
       }
     }
+
   }
 
   // 6b. Upload Product PDF Brochure/Datasheet
   if (product.pdfFile) {
     const pdfFilePath = path.join(__dirname, "../brochures", product.pdfFile);
     if (fs.existsSync(pdfFilePath)) {
-      console.log(`   📄 Uploading product PDF brochure: "${product.pdfFile}"...`);
-      const fileInputs = page.locator("input[type='file']");
+      const stats = fs.statSync(pdfFilePath);
+      const sizeMB = stats.size / (1024 * 1024);
+      if (sizeMB > 10) {
+        console.log(`   🚫 Skipping PDF upload: "${product.pdfFile}" is ${sizeMB.toFixed(1)}MB (over the safe 10MB limit)`);
+      } else {
+        console.log(`   📄 Uploading product PDF brochure: "${product.pdfFile}" (${sizeMB.toFixed(1)}MB)...`);
+        const fileInputs = page.locator("input[type='file']");
       const fileInputsCount = await fileInputs.count();
       let uploadedPdf = false;
 
@@ -1101,6 +1150,7 @@ async function listProductOnIndiaMart(page, product) {
           }
         } catch (pdfErr) {}
       }
+      }
     }
   }
 
@@ -1124,18 +1174,21 @@ async function listProductOnIndiaMart(page, product) {
     });
   } catch (err) {}
 
-  const saveBasicBtn = page.locator('#saveBasic').first();
+  const saveBasicBtn = page.locator('#editProductPopup #saveBasic').first();
   let page2Loaded = false;
+  let page1Submitted = false;
   
   if (await saveBasicBtn.count() > 0 && await saveBasicBtn.isVisible()) {
     try {
       await saveBasicBtn.click();
+      page1Submitted = true;
     } catch (clickErr) {
       console.log(`   ⚠️ Playwright click on 'Save and Continue' failed: ${clickErr.message}. Trying JS fallback...`);
       await page.evaluate(() => {
-        const btn = document.querySelector('#saveBasic');
+        const btn = document.querySelector('#editProductPopup #saveBasic') || document.querySelector('#saveBasic');
         if (btn) btn.click();
       });
+      page1Submitted = true;
     }
     console.log("   Clicked 'Save and Continue'! Waiting 6 seconds for Specifications page to load...");
     await page.waitForTimeout(6000);
@@ -1218,14 +1271,19 @@ async function listProductOnIndiaMart(page, product) {
       return true;
     }
 
+    if (page1Submitted) {
+      console.log("   🚀 Product saved successfully on Page 1 (Save & Continue clicked).");
+      return true;
+    }
+
     // Live Submit on Page 1 (fallback)
     const submitSelectors = [
-      "button[type='submit']",
-      "button:has-text('Save')",
-      "button:has-text('Submit')",
-      "input[type='submit']",
-      ".submit-btn",
-      ".save-product-btn"
+      "#editProductPopup button[type='submit']",
+      "#editProductPopup button:has-text('Save')",
+      "#editProductPopup button:has-text('Submit')",
+      "#editProductPopup input[type='submit']",
+      "#editProductPopup .submit-btn",
+      "#editProductPopup .save-product-btn"
     ];
     let submitBtn = null;
     for (const sel of submitSelectors) {

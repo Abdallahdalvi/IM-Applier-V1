@@ -5,11 +5,25 @@
  * using OpenAI.
  */
 
-require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
 const OpenAI = require("openai");
 const pdfParse = require("pdf-parse");
+
+// We parse .env manually to avoid 'dotenv' package dependency issues in the Squirrel-packaged exe
+const envPath = path.join(__dirname, "../.env");
+if (fs.existsSync(envPath)) {
+  const envContent = fs.readFileSync(envPath, 'utf8');
+  envContent.split('\n').forEach(line => {
+    const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+    if (match) {
+      const key = match[1];
+      let value = match[2] || '';
+      value = value.replace(/(^['"]|['"]$)/g, '').trim();
+      process.env[key] = value;
+    }
+  });
+}
 
 const rawApiKey = (process.env.OPENAI_API_KEY || "").trim();
 const AI_AVAILABLE = Boolean(rawApiKey && rawApiKey !== "" && !rawApiKey.startsWith("sk-xxx"));
@@ -17,7 +31,16 @@ const MODEL = (process.env.OPENAI_MODEL || "gpt-4o-mini").trim();
 
 let client = null;
 if (AI_AVAILABLE) {
-  client = new OpenAI({ apiKey: rawApiKey });
+  const isOR = rawApiKey.startsWith('sk-or-');
+  const clientOptions = { apiKey: rawApiKey };
+  if (isOR) {
+    clientOptions.baseURL = 'https://openrouter.ai/api/v1';
+    clientOptions.defaultHeaders = {
+      'HTTP-Referer': 'http://localhost:3000',
+      'X-Title': 'IndiaMART Listing Bot',
+    };
+  }
+  client = new OpenAI(clientOptions);
 } else {
   console.warn("⚠️  OPENAI_API_KEY is not set. AI extraction will be disabled.");
 }

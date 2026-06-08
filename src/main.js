@@ -62,7 +62,7 @@ ipcMain.handle('dalvi:get-config', async (_e, user = 'default') => {
   const p = path.join(PROJECT_ROOT, 'product-engine', 'config.json');
   let config = {
     openaiApiKey: '',
-    openaiModel: 'gpt-4o-mini',
+    openaiModel: 'gpt-5.4-2026-03-05',
     dailyTarget: 30,
     fixedPrice: 4999,
     dryRun: false
@@ -108,18 +108,26 @@ ipcMain.handle('dalvi:save-config', async (_e, { config }) => {
 // Fetch live models
 ipcMain.handle('dalvi:fetch-models', async (_e, apiKey) => {
   if (!apiKey || !apiKey.trim() || apiKey.startsWith('sk-xx')) {
-    return ['gpt-4o-mini', 'gpt-4o'];
+    return ['gpt-5.4-2026-03-05', 'gpt-4o', 'gpt-4o-mini'];
   }
   try {
     const OpenAI = require('openai');
-    const client = new OpenAI({ apiKey: apiKey.trim() });
+    const isOR = apiKey.trim().startsWith('sk-or-');
+    const clientOptions = { apiKey: apiKey.trim() };
+    if (isOR) {
+      clientOptions.baseURL = 'https://openrouter.ai/api/v1';
+      clientOptions.defaultHeaders = {
+        'HTTP-Referer': 'http://localhost:3000',
+        'X-Title': 'IndiaMART Listing Bot',
+      };
+    }
+    const client = new OpenAI(clientOptions);
     const response = await client.models.list();
     return response.data
       .map(m => m.id)
-      .filter(id => id.startsWith('gpt') || id.startsWith('o1') || id.startsWith('o3'))
       .sort();
   } catch (err) {
-    return ['gpt-4o-mini', 'gpt-4o'];
+    return ['gpt-5.4-2026-03-05', 'gpt-4o', 'gpt-4o-mini'];
   }
 });
 
