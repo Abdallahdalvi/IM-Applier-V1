@@ -425,17 +425,17 @@ select.md-input { resize: none; cursor: pointer; }
           <span class="card-title">API Settings</span>
         </div>
         <div class="card-body">
-          <label class="field-label" for="openai-api-key">API Key (OpenAI or OpenRouter)</label>
-          <input id="openai-api-key" class="md-input" type="password" placeholder="sk-... or sk-or-..." />
+          <label class="field-label" for="openai-api-key">OpenAI API Key</label>
+          <input id="openai-api-key" class="md-input" type="password" placeholder="sk-..." />
 
-          <label class="field-label" for="openai-model">AI Model</label>
+          <label class="field-label" for="openai-model">OpenAI Model</label>
           <div class="model-select-row">
             <select id="openai-model" class="md-input">
-              <option value="gpt-5.4-2026-03-05">gpt-5.4-2026-03-05 (Default)</option>
-              <option value="gpt-4o-mini">gpt-4o-mini</option>
+              <option value="gpt-4o-mini">gpt-4o-mini (Default)</option>
+              <option value="gpt-4o">gpt-4o</option>
               <option value="o1-mini">o1-mini</option>
             </select>
-            <button id="fetch-models-btn" class="md-btn md-btn-tonal btn-small" title="Fetch live models from API">🔄 Fetch</button>
+            <button id="fetch-models-btn" class="md-btn md-btn-tonal btn-small" title="Fetch live models from OpenAI">🔄 Fetch</button>
           </div>
         </div>
       </div>
@@ -455,16 +455,11 @@ select.md-input { resize: none; cursor: pointer; }
 
           <label class="field-label" for="selected-category">Category</label>
           <select id="selected-category" class="md-input">
-            <option value="Air Quality Monitors">Air Quality Monitors</option>
-            <option value="Water Pump Controller">Water Pump Controller</option>
-            <option value="Air Quality Sensors">Air Quality Sensors</option>
             <option value="Solar Monitoring System">Solar Monitoring System</option>
-            <option value="Remote Monitoring Systems">Remote Monitoring Systems</option>
-            <option value="Automatic Water Level Controller">Automatic Water Level Controller</option>
-            <option value="Ambient Air Quality Monitoring Equipment">Ambient Air Quality Monitoring Equipment</option>
-            <option value="Solar System Components">Solar System Components</option>
-            <option value="Data Loggers">Data Loggers</option>
-            <option value="Level Monitors">Level Monitors</option>
+            <option value="Air Quality Monitors">Air Quality Monitors</option>
+            <option value="IoT Gateway">IoT Gateway</option>
+            <option value="Mobile Phones">Mobile Phones (Blackberry Q5)</option>
+            <option value="Nokia Mobile Phones">Nokia Mobile Phones (Nokia 2720 Flip)</option>
           </select>
 
           <div class="checkbox-row">

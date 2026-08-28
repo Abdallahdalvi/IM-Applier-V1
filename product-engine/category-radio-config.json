@@ -1,0 +1,287 @@
+{
+  "_instructions": "Each category can define rule objects with selector, xpath, labelText, or questionText + optionText.",
+  "Solar Monitoring System": [
+    {
+      "name": "Application Type",
+      "questionText": "Application Type",
+      "optionText": "Solar Plant"
+    },
+    {
+      "name": "Monitoring Device Type",
+      "questionText": "Monitoring Device Type",
+      "optionText": "Data Logger"
+    },
+    {
+      "name": "Connectivity Type",
+      "questionText": "Connectivity Type",
+      "optionText": "4G"
+    },
+    {
+      "name": "Communication Protocol",
+      "questionText": "Communication Protocol",
+      "optionText": "RS485"
+    },
+    {
+      "name": "Brand",
+      "questionText": "Brand",
+      "optionText": "Other",
+      "inputValue": "KLEON"
+    },
+    {
+      "name": "Power",
+      "questionText": "Power",
+      "optionText": "2W"
+    },
+    {
+      "name": "Temperature Range",
+      "questionText": "Temperature Range",
+      "optionText": "-20 - 70"
+    },
+    {
+      "name": "Features",
+      "questionText": "Features",
+      "optionText": "Remote Monitoring"
+    }
+  ],
+  "Air Quality Monitors": [
+    {
+      "name": "Parameter Measured",
+      "questionText": "Parameter Measured",
+      "optionText": "PM2.5"
+    },
+    {
+      "name": "Parameter Measured",
+      "questionText": "Parameter Measured",
+      "optionText": "PM10"
+    },
+    {
+      "name": "Parameter Measured",
+      "questionText": "Parameter Measured",
+      "optionText": "Temperature"
+    },
+    {
+      "name": "Parameter Measured",
+      "questionText": "Parameter Measured",
+      "optionText": "Humidity"
+    },
+    {
+      "name": "Monitor Type",
+      "questionText": "Monitor Type",
+      "optionText": "Fixed"
+    },
+    {
+      "name": "Application Area",
+      "questionText": "Application Area",
+      "optionText": "Indoor"
+    },
+    {
+      "name": "Application Area",
+      "questionText": "Application Area",
+      "optionText": "Outdoor"
+    },
+    {
+      "name": "Application Area",
+      "questionText": "Application Area",
+      "optionText": "Industrial"
+    },
+    {
+      "name": "Data Interface",
+      "questionText": "Data Interface",
+      "optionText": "RS485"
+    },
+    {
+      "name": "Data Interface",
+      "questionText": "Data Interface",
+      "optionText": "Ethernet"
+    },
+    {
+      "name": "Power Supply",
+      "questionText": "Power Supply",
+      "optionText": "230 V AC"
+    },
+    {
+      "name": "Display Type",
+      "questionText": "Display Type",
+      "optionText": "LED"
+    },
+    {
+      "name": "Logging Capability",
+      "questionText": "Logging Capability",
+      "optionText": "Cloud"
+    },
+    {
+      "name": "Enclosure Rating",
+      "questionText": "Enclosure Rating",
+      "optionText": "IP65"
+    }
+  ],
+  "IoT Gateway": [
+    {
+      "name": "Interface Type",
+      "questionText": "Interface Type",
+      "optionText": "Ethernet"
+    },
+    {
+      "name": "Interface Type",
+      "questionText": "Interface Type",
+      "optionText": "WiFi"
+    },
+    {
+      "name": "Interface Type",
+      "questionText": "Interface Type",
+      "optionText": "4G LTE"
+    },
+    {
+      "name": "Interface Type",
+      "questionText": "Interface Type",
+      "optionText": "NB-IoT"
+    },
+    {
+      "name": "Protocol Support",
+      "questionText": "Protocol Support",
+      "optionText": "Modbus TCP"
+    },
+    {
+      "name": "Protocol Support",
+      "questionText": "Protocol Support",
+      "optionText": "Modbus RTU"
+    },
+    {
+      "name": "Protocol Support",
+      "questionText": "Protocol Support",
+      "optionText": "MQTT"
+    },
+    {
+      "name": "Data Rate",
+      "questionText": "Data Rate",
+      "optionText": "100 Mbps"
+    },
+    {
+      "name": "I/O Points",
+      "questionText": "I/O Points",
+      "optionText": "32 Points"
+    },
+    {
+      "name": "SIM Slots",
+      "questionText": "SIM Slots",
+      "optionText": "Other",
+      "inputValue": "Multiple options"
+    },
+    {
+      "name": "CPU Core",
+      "questionText": "CPU Core",
+      "optionText": "Quad Core"
+    },
+    {
+      "name": "Enclosure",
+      "questionText": "Enclosure",
+      "optionText": "IP65"
+    },
+    {
+      "name": "Mounting",
+      "questionText": "Mounting",
+      "optionText": "DIN Rail"
+    }
+  ],
+  "Mobile Phones": [
+    {
+      "name": "RAM",
+      "questionText": "RAM",
+      "optionText": "2 GB"
+    },
+    {
+      "name": "Internal Storage",
+      "questionText": "Internal Storage",
+      "optionText": "Other",
+      "inputValue": "8"
+    },
+    {
+      "name": "Brand",
+      "questionText": "Brand",
+      "optionText": "Other",
+      "inputValue": "Blackberry"
+    },
+    {
+      "name": "Network Type",
+      "questionText": "Network Type",
+      "optionText": "4G"
+    },
+    {
+      "name": "Condition",
+      "questionText": "Condition",
+      "optionText": "New"
+    },
+    {
+      "name": "Phone Type",
+      "questionText": "Phone Type",
+      "optionText": "Smartphone"
+    },
+    {
+      "name": "Screen Size",
+      "questionText": "Screen Size",
+      "optionText": "2.8 inch"
+    },
+    {
+      "name": "Primary Camera",
+      "questionText": "Primary Camera",
+      "optionText": "< 8 MP"
+    },
+    {
+      "name": "Battery Capacity",
+      "questionText": "Battery Capacity",
+      "optionText": "< 3000 mAh"
+    },
+    {
+      "name": "SIM Type",
+      "questionText": "SIM Type",
+      "optionText": "Single SIM"
+    }
+  ],
+  "Nokia Mobile Phones": [
+    {
+      "name": "Body Type",
+      "questionText": "Body Type",
+      "optionText": "Smart Feature"
+    },
+    {
+      "name": "Network Type",
+      "questionText": "Network Type",
+      "optionText": "4G VoLTE"
+    },
+    {
+      "name": "Battery Capacity",
+      "questionText": "Battery Capacity",
+      "optionText": "1500 mAh"
+    },
+    {
+      "name": "RAM",
+      "questionText": "RAM",
+      "optionText": "512 MB"
+    },
+    {
+      "name": "Screen Size",
+      "questionText": "Screen Size",
+      "optionText": "2.4 inch"
+    },
+    {
+      "name": "Internal Storage",
+      "questionText": "Internal Storage",
+      "optionText": "64 GB"
+    },
+    {
+      "name": "SIM Type",
+      "questionText": "SIM Type",
+      "optionText": "Dual SIM"
+    },
+    {
+      "name": "Primary Camera",
+      "questionText": "Primary Camera",
+      "optionText": "2 MP"
+    },
+    {
+      "name": "Operating System",
+      "questionText": "Operating System",
+      "optionText": "Nokia OS"
+    }
+  ]
+}

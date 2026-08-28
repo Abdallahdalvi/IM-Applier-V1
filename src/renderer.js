@@ -5,10 +5,19 @@ import './index.css';
    ════════════════════════════════════════════════════════════ */
 
 const $ = id => document.getElementById(id);
+const ALLOWED_CATEGORIES = ['Solar Monitoring System', 'Air Quality Monitors', 'IoT Gateway', 'Mobile Phones'];
+const DEFAULT_CATEGORY = 'Air Quality Monitors';
 
 // ── State ────────────────────────────────────────────────────
 let running = false;
 const stats = { discovered: 0, filtered: 0, applied: 0, skipped: 0, errors: 0 };
+let selectedPdfPath = '';
+let selectedPhotos = [];
+let configHydrated = false;
+let autoSaveTimer = null;
+let lastSavedConfigJson = '';
+let saveQueue = Promise.resolve();
+const DEFAULT_MODEL_OPTIONS = ['gpt-4o-mini', 'gpt-4o', 'o1-mini'];
 
 // ── DOM Refs ─────────────────────────────────────────────────
 const dropZone          = $('drop-zone');
@@ -19,8 +28,6 @@ const previewName       = $('p-preview-name');
 const previewCat        = $('p-preview-cat');
 const previewPrice      = $('p-preview-price');
 
-// Photos variables
-let selectedPhotos = [];
 const photosDropZone = $('photos-drop-zone');
 const photosInfo = $('photos-info');
 const photosCountEl = $('photos-count');
@@ -42,6 +49,12 @@ const terminal          = $('terminal');
 const statusChip        = $('status-chip');
 const statusText        = $('status-text');
 const saveToast         = $('save-toast');
+const actionHint        = document.querySelector('.btn-hint');
+
+applyBtn.title = 'Skips brochure parsing and lists the existing validated queue only.';
+if (actionHint) {
+  actionHint.textContent = '▶ = Discover + validate + list | 🚀 = List the existing validated queue only';
+}
 
 // ── Load config on startup ───────────────────────────────────
 async function loadConfig() {
@@ -56,16 +69,20 @@ async function loadConfig() {
     dailyTarget.value    = cfg.dailyTarget || 30;
     fixedPrice.value     = cfg.fixedPrice || 4999;
     dryRunCheck.checked  = cfg.dryRun || false;
-    $('selected-category').value = cfg.selectedCategory || 'Air Quality Monitors';
+    const selectedCategory = ALLOWED_CATEGORIES.includes(cfg.selectedCategory)
+      ? cfg.selectedCategory
+      : DEFAULT_CATEGORY;
+    $('selected-category').value = selectedCategory;
 
     const modelVal = cfg.openaiModel || 'gpt-4o-mini';
-    if (!Array.from(openaiModel.options).some(o => o.value === modelVal)) {
-      const opt = document.createElement('option');
-      opt.value = modelVal;
-      opt.textContent = modelVal;
-      openaiModel.appendChild(opt);
+    setModelOptions(cfg.availableModels || DEFAULT_MODEL_OPTIONS, modelVal);
+
+    selectedPdfPath = cfg.selectedPdf || '';
+    if (selectedPdfPath) {
+      dropZone.style.display = 'none';
+      resumeInfo.style.display = 'block';
+      resumeNameEl.textContent = selectedPdfPath.split(/[\\/]/).pop();
     }
-    openaiModel.value = modelVal;
 
     selectedPhotos = cfg.selectedPhotos || [];
     if (selectedPhotos.length > 0) {
@@ -73,6 +90,9 @@ async function loadConfig() {
       photosInfo.style.display = 'block';
       photosCountEl.textContent = `${selectedPhotos.length} photos selected`;
     }
+
+    lastSavedConfigJson = JSON.stringify(buildConfig());
+    configHydrated = true;
   } catch (e) {
     log('⚠️ Could not load config: ' + e.message, 'warn');
   }
@@ -101,6 +121,7 @@ async function handleUpload() {
     if (!result) return;
 
     // Show PDF upload status
+    selectedPdfPath = result.storedPath || '';
     dropZone.style.display   = 'none';
     resumeInfo.style.display = 'block';
     resumeNameEl.textContent = result.name;
@@ -118,6 +139,8 @@ async function handleUpload() {
     } else {
       previewBox.style.display = 'none';
     }
+
+    scheduleAutoSave({ delay: 0, toastText: 'Brochure saved' });
   } catch (e) {
     log('❌ Upload failed: ' + e.message, 'error');
   }
@@ -152,12 +175,13 @@ async function handlePhotosUpload() {
     const result = await window.dalvi.uploadPhotos();
     if (!result) return;
 
-    selectedPhotos = result;
+    selectedPhotos = [...new Set(result)];
     photosDropZone.style.display = 'none';
     photosInfo.style.display = 'block';
-    photosCountEl.textContent = `${result.length} photos selected`;
+    photosCountEl.textContent = `${selectedPhotos.length} photos selected`;
+    scheduleAutoSave({ delay: 0, toastText: 'Photos saved' });
 
-    log(`📸 ${result.length} product photos selected successfully.`, 'success');
+    log(`📸 ${selectedPhotos.length} product photos selected successfully.`, 'success');
   } catch (e) {
     log('❌ Photos selection failed: ' + e.message, 'error');
   }
@@ -166,14 +190,74 @@ async function handlePhotosUpload() {
 // ── Save Settings ────────────────────────────────────────────
 saveBtn.addEventListener('click', async () => {
   try {
-    const config = buildConfig();
-    await window.dalvi.saveConfig('default', config);
-    showToast();
+    await persistConfig({ showToastMessage: true, toastText: 'Settings saved', logSuccess: false });
     log('💾 Settings saved successfully', 'success');
   } catch (e) {
     log('❌ Save failed: ' + e.message, 'error');
   }
 });
+
+function getCurrentModelOptions() {
+  return [...new Set(Array.from(openaiModel.options)
+    .map(option => option.value)
+    .filter(Boolean))];
+}
+
+function setModelOptions(models, selectedValue) {
+  const uniqueModels = [...new Set([...(models || []), ...DEFAULT_MODEL_OPTIONS, selectedValue].filter(Boolean))];
+  openaiModel.innerHTML = '';
+
+  uniqueModels.forEach(model => {
+    const opt = document.createElement('option');
+    opt.value = model;
+    opt.textContent = model === 'gpt-4o-mini' ? `${model} (Default)` : model;
+    openaiModel.appendChild(opt);
+  });
+
+  openaiModel.value = uniqueModels.includes(selectedValue) ? selectedValue : uniqueModels[0];
+}
+
+async function persistConfig({ showToastMessage = true, toastText = 'Settings saved', logSuccess = false } = {}) {
+  if (!window.dalvi) return false;
+
+  const nextJson = JSON.stringify(buildConfig());
+  if (nextJson === lastSavedConfigJson) {
+    return false;
+  }
+
+  saveQueue = saveQueue.catch(() => false).then(async () => {
+    const latestConfig = buildConfig();
+    const latestJson = JSON.stringify(latestConfig);
+    if (latestJson === lastSavedConfigJson) {
+      return false;
+    }
+
+    await window.dalvi.saveConfig('default', latestConfig);
+    lastSavedConfigJson = latestJson;
+
+    if (showToastMessage) {
+      showToast(toastText);
+    }
+    if (logSuccess) {
+      log('Settings saved successfully', 'success');
+    }
+
+    return true;
+  });
+
+  return saveQueue;
+}
+
+function scheduleAutoSave({ delay = 700, toastText = 'Auto-saved' } = {}) {
+  if (!configHydrated) return;
+
+  clearTimeout(autoSaveTimer);
+  autoSaveTimer = setTimeout(() => {
+    persistConfig({ showToastMessage: true, toastText }).catch((e) => {
+      log('Auto-save failed: ' + e.message, 'error');
+    });
+  }, delay);
+}
 
 function buildConfig() {
   return {
@@ -182,15 +266,34 @@ function buildConfig() {
     dailyTarget:  parseInt(dailyTarget.value) || 30,
     fixedPrice:   parseInt(fixedPrice.value) || 4999,
     dryRun:       dryRunCheck.checked,
-    selectedPhotos: selectedPhotos,
-    selectedCategory: $('selected-category').value
+    selectedPdf:  selectedPdfPath,
+    selectedPhotos: [...new Set(selectedPhotos)],
+    selectedCategory: $('selected-category').value,
+    availableModels: getCurrentModelOptions()
   };
 }
 
-function showToast() {
+function showToast(message = 'Settings saved') {
+  saveToast.textContent = message;
   saveToast.style.display = 'flex';
   setTimeout(() => { saveToast.style.display = 'none'; }, 2500);
 }
+
+[
+  openaiApiKey,
+  dailyTarget,
+  fixedPrice
+].forEach((input) => {
+  input.addEventListener('input', () => scheduleAutoSave());
+});
+
+[
+  openaiModel,
+  dryRunCheck,
+  $('selected-category')
+].forEach((input) => {
+  input.addEventListener('change', () => scheduleAutoSave());
+});
 
 // ── Pipeline runner interface ────────────────────────────────
 async function launchBot(mode) {
@@ -198,7 +301,7 @@ async function launchBot(mode) {
 
   // Auto-save config first
   try {
-    await window.dalvi.saveConfig('default', buildConfig());
+    await persistConfig({ showToastMessage: false });
   } catch(e) {}
 
   running = true;
@@ -218,7 +321,7 @@ async function launchBot(mode) {
   // Listen for completion
   window.dalvi.onDone(({ error }) => {
     running = false;
-    if (error) {
+    if (error || stats.errors > 0) {
       setStatus('error');
       log('\n⛔ Bot stopped due to errors.\n', 'error');
     } else {
@@ -270,25 +373,21 @@ clearBtn.addEventListener('click', () => {
 fetchModelsBtn.addEventListener('click', async () => {
   const key = openaiApiKey.value.trim();
   if (!key) {
-    log('⚠️ Please enter an API Key first.', 'warn');
+    log('⚠️ Please enter an OpenAI API Key first.', 'warn');
     return;
   }
   
   fetchModelsBtn.disabled = true;
   fetchModelsBtn.textContent = '⏳ ...';
-  log('🔄 Fetching live chat models from API...', 'info');
+  log('🔄 Fetching live chat models from OpenAI...', 'info');
   
   try {
     const list = await window.dalvi.fetchModels(key);
     if (list && list.length > 0) {
-      openaiModel.innerHTML = '';
-      list.forEach(m => {
-        const opt = document.createElement('option');
-        opt.value = m;
-        opt.textContent = m;
-        openaiModel.appendChild(opt);
-      });
-      log(`✅ Successfully loaded ${list.length} chat models from API`, 'success');
+      const selectedModel = list.includes(openaiModel.value) ? openaiModel.value : (list[0] || openaiModel.value);
+      setModelOptions(list, selectedModel);
+      await persistConfig({ showToastMessage: true, toastText: 'Models updated' });
+      log(`✅ Successfully loaded ${list.length} chat models from OpenAI`, 'success');
     } else {
       log('⚠️ No chat models found in response.', 'warn');
     }
@@ -317,21 +416,21 @@ function resetStats() {
 }
 
 function updateStatsUI() {
-  $('s-discovered').textContent = stats.discovered || '—';
-  $('s-filtered').textContent   = stats.filtered   || '—';
-  $('s-applied').textContent    = stats.applied    || '—';
-  $('s-skipped').textContent    = stats.skipped    || '—';
-  $('s-errors').textContent     = stats.errors     || '—';
+  $('s-discovered').textContent = String(stats.discovered);
+  $('s-filtered').textContent   = String(stats.filtered);
+  $('s-applied').textContent    = String(stats.applied);
+  $('s-skipped').textContent    = String(stats.skipped);
+  $('s-errors').textContent     = String(stats.errors);
 }
 
 function parseStats(text) {
   if (!text) return;
   const matchers = {
-    discovered: /Found\s*(\d+)\s*PDF files/,
+    discovered: /Found\s*(\d+)\s*PDF file(?:s|\(s\))/,
     filtered:   /Filtered queue contains\s*(\d+)\s*of/,
-    applied:    /posted\s*│\s*(\d+)/,
-    skipped:    /skipped_disk\s*│\s*(\d+)/,
-    errors:     /errors\s*│\s*(\d+)/,
+    applied:    /posted\s*(?:│|\|)\s*(\d+)/,
+    skipped:    /skipped(?:_no_form)?\s*\D+\s*(\d+)/,
+    errors:     /errors\s*(?:│|\|)\s*(\d+)/,
   };
   let changed = false;
   for (const [key, rx] of Object.entries(matchers)) {

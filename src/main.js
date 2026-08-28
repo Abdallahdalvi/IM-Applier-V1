@@ -10,6 +10,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('node:path');
 const fs   = require('fs');
 const { spawn } = require('child_process');
+const sharp = require('sharp');
 
 // ── Remote debugging for Playwright ──────────────────────────
 app.commandLine.appendSwitch('remote-debugging-port', '9222');
@@ -21,6 +22,234 @@ let browserWindow = null;
 let currentProc  = null;
 
 const PROJECT_ROOT = app.getAppPath();
+const DEFAULT_MODEL_OPTIONS = ['gpt-4o-mini', 'gpt-4o', 'o1-mini'];
+const ALLOWED_CATEGORIES = ['Solar Monitoring System', 'Air Quality Monitors', 'IoT Gateway', 'Mobile Phones', 'Nokia Mobile Phones'];
+const DEFAULT_CATEGORY = 'Air Quality Monitors';
+const CONTROLLED_ENV_KEYS = ['OPENAI_API_KEY', 'OPENAI_MODEL', 'DRY_RUN', 'PORT'];
+const INDIAMART_MIN_IMAGE_DIMENSION = 1000;
+const INDIAMART_NORMALIZED_IMAGE_DIMENSION = 1200;
+const INDIAMART_SUPPORTED_IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png']);
+
+function uniqueNonEmpty(values) {
+  return [...new Set((Array.isArray(values) ? values : [])
+    .map(value => String(value || '').trim())
+    .filter(Boolean))];
+}
+
+function normalizeConfig(config = {}) {
+  const requestedCategory = typeof config.selectedCategory === 'string' ? config.selectedCategory.trim() : '';
+  const normalized = {
+    openaiApiKey: typeof config.openaiApiKey === 'string' ? config.openaiApiKey : '',
+    openaiModel: typeof config.openaiModel === 'string' && config.openaiModel.trim() ? config.openaiModel.trim() : 'gpt-4o-mini',
+    dailyTarget: Number.isFinite(parseInt(config.dailyTarget, 10)) ? parseInt(config.dailyTarget, 10) : 30,
+    fixedPrice: Number.isFinite(parseInt(config.fixedPrice, 10)) ? parseInt(config.fixedPrice, 10) : 4999,
+    dryRun: Boolean(config.dryRun),
+    selectedPdf: typeof config.selectedPdf === 'string' ? config.selectedPdf : '',
+    selectedPhotos: uniqueNonEmpty(config.selectedPhotos),
+    selectedCategory: ALLOWED_CATEGORIES.includes(requestedCategory)
+      ? requestedCategory
+      : DEFAULT_CATEGORY,
+    availableModels: uniqueNonEmpty(config.availableModels)
+  };
+
+  normalized.availableModels = uniqueNonEmpty([
+    ...DEFAULT_MODEL_OPTIONS,
+    ...normalized.availableModels,
+    normalized.openaiModel
+  ]);
+
+  return normalized;
+}
+
+function readEnvFileValues(envPath) {
+  if (!fs.existsSync(envPath)) {
+    return {};
+  }
+
+  try {
+    const dotenv = require('dotenv');
+    return dotenv.parse(fs.readFileSync(envPath, 'utf-8'));
+  } catch (error) {
+    return {};
+  }
+}
+
+function upsertEnvFile(envPath, updates) {
+  const existingLines = fs.existsSync(envPath)
+    ? fs.readFileSync(envPath, 'utf-8').split(/\r?\n/)
+    : [];
+  const preserved = [];
+  const seen = new Set();
+
+  existingLines.forEach(line => {
+    const match = line.match(/^\s*([A-Z0-9_]+)\s*=/i);
+    if (!match) {
+      if (line.trim()) preserved.push(line);
+      return;
+    }
+
+    const key = match[1];
+    if (!CONTROLLED_ENV_KEYS.includes(key)) {
+      preserved.push(line);
+      return;
+    }
+
+    seen.add(key);
+    const value = updates[key];
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      preserved.push(`${key}=${value}`);
+    }
+  });
+
+  CONTROLLED_ENV_KEYS.forEach(key => {
+    if (seen.has(key)) return;
+    const value = updates[key];
+    if (value !== undefined && value !== null && String(value).trim() !== '') {
+      preserved.push(`${key}=${value}`);
+    }
+  });
+
+  fs.writeFileSync(envPath, `${preserved.join('\n').replace(/\n{3,}/g, '\n\n')}\n`);
+}
+
+function getUniqueDestinationPath(targetDir, originalName) {
+  const parsed = path.parse(originalName);
+  let candidate = path.join(targetDir, originalName);
+  let counter = 1;
+
+  while (fs.existsSync(candidate)) {
+    candidate = path.join(targetDir, `${parsed.name}-${counter}${parsed.ext}`);
+    counter += 1;
+  }
+
+  return candidate;
+}
+
+function copyFileIntoProject(sourcePath, targetDir) {
+  fs.mkdirSync(targetDir, { recursive: true });
+
+  const resolvedSource = path.resolve(sourcePath);
+  const initialTarget = path.join(targetDir, path.basename(resolvedSource));
+  const destinationPath = fs.existsSync(initialTarget) && path.resolve(initialTarget) !== resolvedSource
+    ? getUniqueDestinationPath(targetDir, path.basename(resolvedSource))
+    : initialTarget;
+
+  if (path.resolve(destinationPath) !== resolvedSource) {
+    fs.copyFileSync(resolvedSource, destinationPath);
+  }
+
+  return destinationPath;
+}
+
+async function normalizeImageForIndiaMart(sourcePath, targetDir) {
+  const resolvedSource = path.resolve(sourcePath);
+  let metadata;
+  try {
+    metadata = await sharp(resolvedSource, { failOn: 'error' }).metadata();
+  } catch (_error) {
+    throw new Error(`Unable to read selected image: ${path.basename(resolvedSource)}`);
+  }
+  if (!metadata.width || !metadata.height) {
+    throw new Error(`Selected image has invalid dimensions: ${path.basename(resolvedSource)}`);
+  }
+
+  const sourceSize = { width: metadata.width, height: metadata.height };
+  const sourceExtension = path.extname(resolvedSource).toLowerCase();
+  const mustResize = Math.max(sourceSize.width, sourceSize.height) < INDIAMART_MIN_IMAGE_DIMENSION;
+  const mustConvert = !INDIAMART_SUPPORTED_IMAGE_EXTENSIONS.has(sourceExtension);
+
+  if (!mustResize && !mustConvert) {
+    return {
+      path: copyFileIntoProject(resolvedSource, targetDir),
+      changed: false,
+      sourceSize,
+      outputSize: sourceSize
+    };
+  }
+
+  const scale = mustResize
+    ? INDIAMART_NORMALIZED_IMAGE_DIMENSION / Math.max(sourceSize.width, sourceSize.height)
+    : 1;
+  const outputSize = {
+    width: Math.max(1, Math.round(sourceSize.width * scale)),
+    height: Math.max(1, Math.round(sourceSize.height * scale))
+  };
+  fs.mkdirSync(targetDir, { recursive: true });
+  const sourceName = path.basename(resolvedSource, sourceExtension);
+  const destinationPath = getUniqueDestinationPath(targetDir, `${sourceName}-indiamart.png`);
+  let pipeline = sharp(resolvedSource, { failOn: 'error' });
+  if (mustResize) {
+    pipeline = pipeline.resize(outputSize.width, outputSize.height, { fit: 'fill', kernel: 'lanczos3' });
+  }
+  await pipeline.png({ compressionLevel: 9 }).toFile(destinationPath);
+
+  return {
+    path: destinationPath,
+    changed: true,
+    sourceSize,
+    outputSize,
+    converted: mustConvert,
+    resized: mustResize
+  };
+}
+
+function synchronizeQueueImages(queuePath, selectedPdf, selectedPhotos) {
+  if (!fs.existsSync(queuePath)) return false;
+
+  let queue;
+  try {
+    queue = JSON.parse(fs.readFileSync(queuePath, 'utf-8'));
+  } catch (_error) {
+    return false;
+  }
+
+  if (!Array.isArray(queue)) return false;
+
+  const selectedPdfName = selectedPdf ? path.basename(selectedPdf) : '';
+  let changed = false;
+  queue.forEach(product => {
+    if (selectedPdfName && product.pdfFile !== selectedPdfName) return;
+    if (JSON.stringify(product.images || []) === JSON.stringify(selectedPhotos)) return;
+    product.images = [...selectedPhotos];
+    changed = true;
+  });
+
+  if (changed) {
+    fs.writeFileSync(queuePath, JSON.stringify(queue, null, 2));
+  }
+  return changed;
+}
+
+async function prepareSelectedImagesForPipeline() {
+  const configPath = path.join(PROJECT_ROOT, 'product-engine', 'config.json');
+  const brochuresDir = path.join(PROJECT_ROOT, 'brochures');
+  const existingConfig = fs.existsSync(configPath)
+    ? JSON.parse(fs.readFileSync(configPath, 'utf-8'))
+    : {};
+  const config = normalizeConfig(existingConfig);
+
+  if (config.selectedPhotos.length === 0) {
+    throw new Error('Select at least one product photo before running the bot.');
+  }
+
+  const normalizedResults = await Promise.all(config.selectedPhotos.map(async photoPath => {
+    if (!fs.existsSync(photoPath)) {
+      throw new Error(`Selected image is missing: ${path.basename(photoPath)}`);
+    }
+    return await normalizeImageForIndiaMart(photoPath, brochuresDir);
+  }));
+  const selectedPhotos = uniqueNonEmpty(normalizedResults.map(result => result.path));
+  config.selectedPhotos = selectedPhotos;
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+
+  synchronizeQueueImages(path.join(PROJECT_ROOT, 'product-queue.json'), config.selectedPdf, selectedPhotos);
+  synchronizeQueueImages(path.join(PROJECT_ROOT, 'product-queue-filtered.json'), config.selectedPdf, selectedPhotos);
+
+  return {
+    selectedPhotos,
+    normalizedCount: normalizedResults.filter(result => result.changed).length
+  };
+}
 
 function createWindows() {
   // 1. Browser window – where the user logs in to IndiaMART
@@ -60,47 +289,42 @@ function send(channel, payload) {
 // Load config
 ipcMain.handle('dalvi:get-config', async (_e, user = 'default') => {
   const p = path.join(PROJECT_ROOT, 'product-engine', 'config.json');
-  let config = {
-    openaiApiKey: '',
-    openaiModel: 'gpt-5.4-2026-03-05',
-    dailyTarget: 30,
-    fixedPrice: 4999,
-    dryRun: false
-  };
+  let config = normalizeConfig();
   if (fs.existsSync(p)) {
-    config = JSON.parse(fs.readFileSync(p, 'utf-8'));
+    config = normalizeConfig(JSON.parse(fs.readFileSync(p, 'utf-8')));
   }
   // Load from .env if key is blank
   const envPath = path.join(PROJECT_ROOT, '.env');
   if (fs.existsSync(envPath)) {
-    require('dotenv').config({ path: envPath });
-    if (!config.openaiApiKey && process.env.OPENAI_API_KEY) {
-      config.openaiApiKey = process.env.OPENAI_API_KEY.trim();
+    const envValues = readEnvFileValues(envPath);
+    if (!config.openaiApiKey && envValues.OPENAI_API_KEY) {
+      config.openaiApiKey = envValues.OPENAI_API_KEY.trim();
     }
-    if (process.env.OPENAI_MODEL) {
-      config.openaiModel = process.env.OPENAI_MODEL.trim();
+    if (envValues.OPENAI_MODEL) {
+      config.openaiModel = envValues.OPENAI_MODEL.trim();
     }
-    if (process.env.DRY_RUN) {
-      config.dryRun = process.env.DRY_RUN === 'true';
+    if (envValues.DRY_RUN) {
+      config.dryRun = envValues.DRY_RUN === 'true';
     }
   }
-  return config;
+  return normalizeConfig(config);
 });
 
 // Save config
 ipcMain.handle('dalvi:save-config', async (_e, { config }) => {
   const dir = path.join(PROJECT_ROOT, 'product-engine');
+  const normalized = normalizeConfig(config);
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify(config, null, 2));
+  fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify(normalized, null, 2));
 
-  // Write/Update .env file to match config
+  // Preserve unrelated env keys while keeping bot settings in sync.
   const envPath = path.join(PROJECT_ROOT, '.env');
-  let envContent = '';
-  if (config.openaiApiKey) envContent += `OPENAI_API_KEY=${config.openaiApiKey.trim()}\n`;
-  if (config.openaiModel) envContent += `OPENAI_MODEL=${config.openaiModel.trim()}\n`;
-  envContent += `DRY_RUN=${config.dryRun ? 'true' : 'false'}\n`;
-  envContent += `PORT=9222\n`;
-  fs.writeFileSync(envPath, envContent);
+  upsertEnvFile(envPath, {
+    OPENAI_API_KEY: normalized.openaiApiKey.trim(),
+    OPENAI_MODEL: normalized.openaiModel.trim(),
+    DRY_RUN: normalized.dryRun ? 'true' : 'false',
+    PORT: '9222'
+  });
 
   return true;
 });
@@ -108,26 +332,18 @@ ipcMain.handle('dalvi:save-config', async (_e, { config }) => {
 // Fetch live models
 ipcMain.handle('dalvi:fetch-models', async (_e, apiKey) => {
   if (!apiKey || !apiKey.trim() || apiKey.startsWith('sk-xx')) {
-    return ['gpt-5.4-2026-03-05', 'gpt-4o', 'gpt-4o-mini'];
+    return DEFAULT_MODEL_OPTIONS;
   }
   try {
     const OpenAI = require('openai');
-    const isOR = apiKey.trim().startsWith('sk-or-');
-    const clientOptions = { apiKey: apiKey.trim() };
-    if (isOR) {
-      clientOptions.baseURL = 'https://openrouter.ai/api/v1';
-      clientOptions.defaultHeaders = {
-        'HTTP-Referer': 'http://localhost:3000',
-        'X-Title': 'IndiaMART Listing Bot',
-      };
-    }
-    const client = new OpenAI(clientOptions);
+    const client = new OpenAI({ apiKey: apiKey.trim() });
     const response = await client.models.list();
-    return response.data
+    return uniqueNonEmpty(response.data
       .map(m => m.id)
-      .sort();
+      .filter(id => /^(gpt|o\d)/.test(id))
+      .sort());
   } catch (err) {
-    return ['gpt-5.4-2026-03-05', 'gpt-4o', 'gpt-4o-mini'];
+    return DEFAULT_MODEL_OPTIONS;
   }
 });
 
@@ -142,10 +358,7 @@ ipcMain.handle('dalvi:upload-pdf', async (_e) => {
 
   const pdfPath = result.filePaths[0];
   const brochuresDir = path.join(PROJECT_ROOT, 'brochures');
-  fs.mkdirSync(brochuresDir, { recursive: true });
-
-  const destPath = path.join(brochuresDir, path.basename(pdfPath));
-  fs.copyFileSync(pdfPath, destPath);
+  const destPath = copyFileIntoProject(pdfPath, brochuresDir);
 
   send('bot:log', { type: 'info', text: `📁 Copied brochure to project brochures/ directory` });
 
@@ -159,8 +372,8 @@ ipcMain.handle('dalvi:upload-pdf', async (_e) => {
   let aiSuggestions = null;
   try {
     const envPath = path.join(PROJECT_ROOT, '.env');
-    require('dotenv').config({ path: envPath });
-    const apiKey = (process.env.OPENAI_API_KEY || '').trim();
+    const envValues = readEnvFileValues(envPath);
+    const apiKey = (envValues.OPENAI_API_KEY || '').trim();
 
     if (apiKey && !apiKey.startsWith('sk-xx')) {
       send('bot:log', { type: 'info', text: '🤖 Analysing brochure with OpenAI...' });
@@ -175,7 +388,8 @@ ipcMain.handle('dalvi:upload-pdf', async (_e) => {
   }
 
   return {
-    name: path.basename(pdfPath),
+    name: path.basename(destPath),
+    storedPath: destPath,
     preview: text.slice(0, 300),
     ai: aiSuggestions
   };
@@ -191,16 +405,22 @@ ipcMain.handle('dalvi:upload-photos', async (_e) => {
   if (result.canceled || !result.filePaths.length) return null;
 
   const brochuresDir = path.join(PROJECT_ROOT, 'brochures');
-  fs.mkdirSync(brochuresDir, { recursive: true });
-
   const copiedPaths = [];
-  result.filePaths.forEach(filePath => {
-    const destPath = path.join(brochuresDir, path.basename(filePath));
-    fs.copyFileSync(filePath, destPath);
-    copiedPaths.push(destPath);
-  });
+  const seenSourcePaths = new Set();
 
-  send('bot:log', { type: 'info', text: `📸 Copied ${copiedPaths.length} photos to project brochures/ directory` });
+  for (const filePath of result.filePaths) {
+    const resolvedPath = path.resolve(filePath);
+    if (seenSourcePaths.has(resolvedPath)) continue;
+
+    seenSourcePaths.add(resolvedPath);
+    const destPath = (await normalizeImageForIndiaMart(resolvedPath, brochuresDir)).path;
+
+    if (!copiedPaths.includes(destPath)) {
+      copiedPaths.push(destPath);
+    }
+  }
+
+  send('bot:log', { type: 'info', text: `📸 Prepared ${copiedPaths.length} IndiaMART-ready photo(s).` });
   return copiedPaths;
 });
 
@@ -265,6 +485,19 @@ function runPipeline(steps) {
 
 // Start full pipeline
 ipcMain.handle('dalvi:start-bot', async () => {
+  try {
+    const preflight = await prepareSelectedImagesForPipeline();
+    if (preflight.normalizedCount > 0) {
+      send('bot:log', {
+        type: 'info',
+        text: `🖼️ Normalized ${preflight.normalizedCount} photo(s) to IndiaMART-compatible PNG files.`
+      });
+    }
+  } catch (error) {
+    send('bot:log', { type: 'error', text: `❌ Image preflight failed: ${error.message}` });
+    send('bot:done', { error: true });
+    return { error: error.message };
+  }
   return runPipeline([
     { label: '🔍 Discover Products', args: ['indiamart-product-discovery.js'] },
     { label: '🧹 Validate & Filter', args: ['product-engine/product-filter.js'] },
@@ -279,6 +512,19 @@ ipcMain.handle('dalvi:apply-only', async () => {
     send('bot:log', { type: 'error', text: '❌ No filtered product queue found. Run the full pipeline first.' });
     send('bot:done', { error: true });
     return { error: 'No product-queue-filtered.json' };
+  }
+  try {
+    const preflight = await prepareSelectedImagesForPipeline();
+    if (preflight.normalizedCount > 0) {
+      send('bot:log', {
+        type: 'info',
+        text: `🖼️ Normalized ${preflight.normalizedCount} photo(s) to IndiaMART-compatible PNG files.`
+      });
+    }
+  } catch (error) {
+    send('bot:log', { type: 'error', text: `❌ Image preflight failed: ${error.message}` });
+    send('bot:done', { error: true });
+    return { error: error.message };
   }
   return runPipeline([
     { label: '🚀 Auto-List on IndiaMART', args: ['product-engine/indiamart-auto-list.js'] }

@@ -1,14 +1,16 @@
 {
-  "name": "indiamart-seller-automation",
+  "name": "dalvi-indiamart-product-bot",
   "productName": "IndiaMART Product Listing Bot",
-  "version": "1.0.0",
+  "version": "1.0.10",
   "description": "Automated product listing bot for IndiaMART sellers using Electron, Playwright, and OpenAI.",
   "main": ".webpack/main",
   "scripts": {
     "start": "npx cross-env ELECTRON_DISABLE_SANDBOX=1 electron-forge start",
     "run-bot": "node product-engine/run-indiamart.js",
+    "test:automation": "node product-engine/automation-smoke-test.js",
     "package": "electron-forge package",
-    "make": "electron-forge make"
+    "make": "electron-forge make",
+    "make:windows": "node scripts/build-windows-installer.js"
   },
   "keywords": [],
   "author": "devev",
@@ -36,6 +38,7 @@
     "openai": "^6.10.0",
     "pdf-parse": "^1.1.1",
     "pdfkit": "^0.17.2",
-    "playwright": "^1.57.0"
+    "playwright": "^1.57.0",
+    "sharp": "^0.34.5"
   }
 }

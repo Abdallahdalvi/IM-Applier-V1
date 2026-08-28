@@ -48,8 +48,6 @@ module.exports = {
         },
       },
     },
-    // Fuses are used to enable/disable various Electron functionality
-    // at package time, before code signing the application
     new FusesPlugin({
       version: FuseVersion.V1,
       [FuseV1Options.RunAsNode]: true,
@@ -63,11 +61,20 @@ module.exports = {
   hooks: {
     postPackage: async (forgeConfig, packageResult) => {
       console.log('   Post-Package hook: Copying pipeline scripts and brochures to packaged app...');
+      const outRoot = path.join(__dirname, 'out');
+      fs.mkdirSync(outRoot, { recursive: true });
+      fs.writeFileSync(
+        path.join(outRoot, 'package-output-paths.json'),
+        JSON.stringify(packageResult.outputPaths, null, 2),
+        'utf8'
+      );
+
       for (const outputPath of packageResult.outputPaths) {
         const appPath = path.join(outputPath, 'resources', 'app');
         if (!fs.existsSync(appPath)) {
           fs.mkdirSync(appPath, { recursive: true });
         }
+
         const toCopy = [
           'indiamart-product-discovery.js',
           'product-engine',
@@ -76,6 +83,7 @@ module.exports = {
           'node_modules',
           '.env'
         ];
+
         for (const item of toCopy) {
           const srcPath = path.join(__dirname, item);
           const destPath = path.join(appPath, item);
@@ -83,9 +91,14 @@ module.exports = {
             console.log(`      Copying ${item} -> ${destPath}`);
             fs.cpSync(srcPath, destPath, { recursive: true, force: true });
           } else {
-            console.log(`      ⚠️ Warning: ${item} not found at ${srcPath}`);
+            console.log(`      Warning: ${item} not found at ${srcPath}`);
           }
         }
+
+        const snapshotPath = path.join(outRoot, `${path.basename(outputPath)}-snapshot`);
+        fs.rmSync(snapshotPath, { recursive: true, force: true });
+        fs.cpSync(outputPath, snapshotPath, { recursive: true, force: true });
+        console.log(`      Snapshot saved -> ${snapshotPath}`);
       }
     }
   }
