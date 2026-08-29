@@ -4,6 +4,8 @@ const {
   evaluatePersistedStepState,
   loadCategoryConfig,
   normalizeUniquePaths,
+  resolveCategoryRules,
+  resolveIndiaMartCategory,
   resolveScratchRoot,
   toSafeFileFragment
 } = require("./indiamart-auto-list");
@@ -32,6 +34,7 @@ function run() {
   assert.ok(Array.isArray(config["IoT Gateway"]), "Missing IoT Gateway mapping");
   assert.ok(Array.isArray(config["Mobile Phones"]), "Missing Mobile Phones mapping");
   assert.ok(Array.isArray(config["Nokia Mobile Phones"]), "Missing Nokia Mobile Phones mapping");
+  assert.ok(Array.isArray(config["Nokia E5"]), "Missing Nokia E5 mapping");
 
   const mobileRules = config["Mobile Phones"];
   assert.strictEqual(mobileRules.length, 10, "Mobile Phones must have all 10 preset rules");
@@ -68,6 +71,40 @@ function run() {
       ["Operating System", "Nokia OS", null]
     ],
     "Nokia Mobile Phones preset does not match the requested Nokia 2720 Flip specifications"
+  );
+
+  assert.strictEqual(
+    resolveIndiaMartCategory("Nokia E5"),
+    "Nokia Mobile Phones",
+    "Nokia E5 must map to the Nokia Mobile Phones IndiaMART category"
+  );
+  assert.strictEqual(
+    resolveIndiaMartCategory("Nokia Mobile Phones"),
+    "Nokia Mobile Phones",
+    "Direct IndiaMART category names must remain unchanged"
+  );
+  assert.strictEqual(
+    resolveCategoryRules(config, "Nokia Mobile Phones", "Nokia E5"),
+    config["Nokia E5"],
+    "The selected dashboard preset must override a stale queued product category"
+  );
+
+  const nokiaE5Rules = config["Nokia E5"];
+  assert.strictEqual(nokiaE5Rules.length, 9, "Nokia E5 must have all 9 preset rules");
+  assert.deepStrictEqual(
+    nokiaE5Rules.map((rule) => [rule.questionText, rule.optionText, rule.inputValue || null]),
+    [
+      ["Body Type", "Smart Feature", null],
+      ["Network Type", "2G", null],
+      ["Battery Capacity", "1500 mAh", null],
+      ["RAM", "2 GB", null],
+      ["Screen Size", "2.4 inch", null],
+      ["Internal Storage", "8 GB", null],
+      ["SIM Type", "Dual SIM", null],
+      ["Primary Camera", "5 MP", null],
+      ["Operating System", "Nokia OS", null]
+    ],
+    "Nokia E5 preset does not match the requested specifications"
   );
 
   const lowResolutionPageTwo = evaluatePersistedStepState({

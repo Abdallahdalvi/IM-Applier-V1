@@ -3,6 +3,8 @@ const path = require('path');
 const { spawn } = require('child_process');
 const electronPackager = require('@electron/packager');
 const { createWindowsInstaller } = require('electron-winstaller');
+const webpack = require('webpack');
+const WebpackConfigGenerator = require('@electron-forge/plugin-webpack/dist/WebpackConfig').default;
 
 const rootDir = path.resolve(__dirname, '..');
 const pkg = require(path.join(rootDir, 'package.json'));
@@ -71,13 +73,44 @@ async function buildWebpackBundles() {
     return;
   }
 
-  if (process.platform === 'win32') {
-    await runWindowsCommandLine('npx.cmd electron-forge package --platform win32 --arch x64');
-    return;
+  const forgeConfig = require(path.join(rootDir, 'forge.config.js'));
+  const plugin = forgeConfig.plugins.find((candidate) => candidate?.name === '@electron-forge/plugin-webpack');
+  if (!plugin?.config) {
+    throw new Error('Electron Forge webpack plugin configuration was not found.');
   }
 
-  const npmCmd = 'npx';
-  await run(npmCmd, ['electron-forge', 'package', '--platform', 'win32', '--arch', 'x64']);
+  const webpackOutputDir = path.join(rootDir, '.webpack', 'x64');
+  ensureFreshDirectory(webpackOutputDir);
+
+  const generator = new WebpackConfigGenerator(plugin.config, rootDir, true, 0);
+  generator.webpackDir = webpackOutputDir;
+  const configs = [
+    await generator.getMainConfig(),
+    ...await generator.getRendererConfig(plugin.config.renderer),
+  ];
+
+  await new Promise((resolve, reject) => {
+    const compiler = webpack(configs);
+    compiler.run((error, stats) => {
+      const finish = (resultError) => compiler.close(() => {
+        if (resultError) reject(resultError);
+        else resolve();
+      });
+
+      if (error) {
+        finish(error);
+        return;
+      }
+
+      if (stats?.hasErrors()) {
+        finish(new Error(stats.toString({ colors: false, all: false, errors: true, warnings: true })));
+        return;
+      }
+
+      console.log(stats?.toString({ colors: false, all: false, timings: true, warnings: true }));
+      finish();
+    });
+  });
 }
 
 async function packageApp(packageOutputDir) {

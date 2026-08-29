@@ -283,5 +283,52 @@
       "questionText": "Operating System",
       "optionText": "Nokia OS"
     }
+  ],
+  "Nokia E5": [
+    {
+      "name": "Body Type",
+      "questionText": "Body Type",
+      "optionText": "Smart Feature"
+    },
+    {
+      "name": "Network Type",
+      "questionText": "Network Type",
+      "optionText": "2G"
+    },
+    {
+      "name": "Battery Capacity",
+      "questionText": "Battery Capacity",
+      "optionText": "1500 mAh"
+    },
+    {
+      "name": "RAM",
+      "questionText": "RAM",
+      "optionText": "2 GB"
+    },
+    {
+      "name": "Screen Size",
+      "questionText": "Screen Size",
+      "optionText": "2.4 inch"
+    },
+    {
+      "name": "Internal Storage",
+      "questionText": "Internal Storage",
+      "optionText": "8 GB"
+    },
+    {
+      "name": "SIM Type",
+      "questionText": "SIM Type",
+      "optionText": "Dual SIM"
+    },
+    {
+      "name": "Primary Camera",
+      "questionText": "Primary Camera",
+      "optionText": "5 MP"
+    },
+    {
+      "name": "Operating System",
+      "questionText": "Operating System",
+      "optionText": "Nokia OS"
+    }
   ]
 }

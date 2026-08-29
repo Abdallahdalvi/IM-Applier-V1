@@ -55,6 +55,9 @@ const config = fs.existsSync(configPath)
 const fixedPrice = config.fixedPrice ? parseInt(config.fixedPrice, 10) : null;
 const dailyTarget = config.dailyTarget ? parseInt(config.dailyTarget, 10) : null;
 const selectedCategory = config.selectedCategory || null;
+const CATEGORY_TARGET_ALIASES = {
+  "Nokia E5": "Nokia Mobile Phones"
+};
 
 const stats = {
   posted: 0,
@@ -3151,6 +3154,19 @@ function loadCategoryConfig() {
   return loadJson(CATEGORY_CONFIG_PATH, {});
 }
 
+function resolveIndiaMartCategory(category) {
+  const normalizedCategory = String(category || "").trim();
+  return CATEGORY_TARGET_ALIASES[normalizedCategory] || normalizedCategory;
+}
+
+function resolveCategoryRules(categoryConfig, productCategory, configuredCategory) {
+  if (configuredCategory && Array.isArray(categoryConfig[configuredCategory])) {
+    return categoryConfig[configuredCategory];
+  }
+
+  return Array.isArray(categoryConfig[productCategory]) ? categoryConfig[productCategory] : [];
+}
+
 async function resolveCategoryRuleLocator(page, rule) {
   if (rule.selector) {
     return page.locator(rule.selector).first();
@@ -3269,8 +3285,8 @@ async function activateCategoryRuleLocator(locator) {
 async function fillCategoryAttributes(page, product, runDir, log) {
   const state = "Fill Category Attributes";
   const categoryConfig = loadCategoryConfig();
-  const rules = categoryConfig[product.category] || categoryConfig[selectedCategory] || [];
-  const targetCategory = selectedCategory || product.category;
+  const rules = resolveCategoryRules(categoryConfig, product.category, selectedCategory);
+  const targetCategory = resolveIndiaMartCategory(selectedCategory || product.category);
 
   await runWithRetries({
     page,
@@ -3384,7 +3400,7 @@ async function fillCategoryAttributes(page, product, runDir, log) {
 
 async function finalSubmit(page, product, runDir, log) {
   const state = "Final Submit";
-  const expectedCategory = selectedCategory || product.category;
+  const expectedCategory = resolveIndiaMartCategory(selectedCategory || product.category);
 
   if (DRY_RUN) {
     const dryRunPath = path.join(runDir, "dry-run-final-page.png");
@@ -3439,7 +3455,7 @@ async function finalSubmit(page, product, runDir, log) {
 
 async function verifySuccess(page, product, runDir, log) {
   const state = "Success Verification";
-  const expectedCategory = selectedCategory || product.category;
+  const expectedCategory = resolveIndiaMartCategory(selectedCategory || product.category);
 
   await runWithRetries({
     page,
@@ -3520,7 +3536,7 @@ async function fillProductForm(page, product, runDir, log) {
       };
 
       await titleField.fill(safeProductName);
-      await fillCategoryField(page, selectedCategory || product.category);
+      await fillCategoryField(page, resolveIndiaMartCategory(selectedCategory || product.category));
 
       const targetPrice = fixedPrice !== null && !Number.isNaN(fixedPrice) ? fixedPrice : product.price;
       await fillInput(page, selectors.price, targetPrice);
@@ -3727,6 +3743,8 @@ module.exports = {
   loadCategoryConfig,
   main,
   normalizeUniquePaths,
+  resolveCategoryRules,
+  resolveIndiaMartCategory,
   resolveScratchRoot,
   toSafeFileFragment
 };
