@@ -56,7 +56,8 @@ const fixedPrice = config.fixedPrice ? parseInt(config.fixedPrice, 10) : null;
 const dailyTarget = config.dailyTarget ? parseInt(config.dailyTarget, 10) : null;
 const selectedCategory = config.selectedCategory || null;
 const CATEGORY_TARGET_ALIASES = {
-  "Nokia E5": "Nokia Mobile Phones"
+  "Nokia E5": "Nokia Mobile Phones",
+  "Nokia C5": "Nokia Mobile Phones"
 };
 
 const stats = {

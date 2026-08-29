@@ -5,7 +5,7 @@ import './index.css';
    ════════════════════════════════════════════════════════════ */
 
 const $ = id => document.getElementById(id);
-const ALLOWED_CATEGORIES = ['Solar Monitoring System', 'Air Quality Monitors', 'IoT Gateway', 'Mobile Phones', 'Nokia Mobile Phones', 'Nokia E5'];
+const ALLOWED_CATEGORIES = ['Solar Monitoring System', 'Air Quality Monitors', 'IoT Gateway', 'Mobile Phones', 'Nokia Mobile Phones', 'Nokia E5', 'Nokia C5'];
 const DEFAULT_CATEGORY = 'Air Quality Monitors';
 
 // ── State ────────────────────────────────────────────────────

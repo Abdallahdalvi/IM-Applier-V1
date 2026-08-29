@@ -35,6 +35,7 @@ function run() {
   assert.ok(Array.isArray(config["Mobile Phones"]), "Missing Mobile Phones mapping");
   assert.ok(Array.isArray(config["Nokia Mobile Phones"]), "Missing Nokia Mobile Phones mapping");
   assert.ok(Array.isArray(config["Nokia E5"]), "Missing Nokia E5 mapping");
+  assert.ok(Array.isArray(config["Nokia C5"]), "Missing Nokia C5 mapping");
 
   const mobileRules = config["Mobile Phones"];
   assert.strictEqual(mobileRules.length, 10, "Mobile Phones must have all 10 preset rules");
@@ -79,6 +80,11 @@ function run() {
     "Nokia E5 must map to the Nokia Mobile Phones IndiaMART category"
   );
   assert.strictEqual(
+    resolveIndiaMartCategory("Nokia C5"),
+    "Nokia Mobile Phones",
+    "Nokia C5 must map to the Nokia Mobile Phones IndiaMART category"
+  );
+  assert.strictEqual(
     resolveIndiaMartCategory("Nokia Mobile Phones"),
     "Nokia Mobile Phones",
     "Direct IndiaMART category names must remain unchanged"
@@ -105,6 +111,19 @@ function run() {
       ["Operating System", "Nokia OS", null]
     ],
     "Nokia E5 preset does not match the requested specifications"
+  );
+
+  const nokiaC5Rules = config["Nokia C5"];
+  assert.strictEqual(nokiaC5Rules.length, 9, "Nokia C5 must have all 9 preset rules");
+  assert.deepStrictEqual(
+    nokiaC5Rules,
+    nokiaE5Rules,
+    "Nokia C5 must use the same technical specifications as Nokia E5"
+  );
+  assert.strictEqual(
+    resolveCategoryRules(config, "Nokia Mobile Phones", "Nokia C5"),
+    config["Nokia C5"],
+    "The selected Nokia C5 dashboard preset must override a stale queued product category"
   );
 
   const lowResolutionPageTwo = evaluatePersistedStepState({
