@@ -1,7 +1,7 @@
 {
   "name": "dalvi-indiamart-product-bot",
   "productName": "IndiaMART Product Listing Bot",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "description": "Automated product listing bot for IndiaMART sellers using Electron, Playwright, and OpenAI.",
   "main": ".webpack/main",
   "scripts": {

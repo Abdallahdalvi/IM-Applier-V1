@@ -377,5 +377,48 @@
       "questionText": "Operating System",
       "optionText": "Nokia OS"
     }
+  ],
+  "BlackBerry KeyOne": [
+    {
+      "name": "Keyboard Type",
+      "questionText": "Keyboard Type",
+      "optionText": "QWERTY"
+    },
+    {
+      "name": "Internal Storage",
+      "questionText": "Internal Storage",
+      "optionText": "32 GB"
+    },
+    {
+      "name": "RAM",
+      "questionText": "RAM",
+      "optionText": "3 GB"
+    },
+    {
+      "name": "Screen Size",
+      "questionText": "Screen Size",
+      "optionText": "4.5 inch"
+    },
+    {
+      "name": "Battery Capacity",
+      "questionText": "Battery Capacity",
+      "optionText": "Other",
+      "inputValue": "3505"
+    },
+    {
+      "name": "Operating System",
+      "questionText": "Operating System",
+      "optionText": "Android"
+    },
+    {
+      "name": "Primary Camera",
+      "questionText": "Primary Camera",
+      "optionText": "12 MP"
+    },
+    {
+      "name": "Network Type",
+      "questionText": "Network Type",
+      "optionText": "4G"
+    }
   ]
 }
