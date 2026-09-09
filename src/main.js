@@ -23,7 +23,7 @@ let currentProc  = null;
 
 const PROJECT_ROOT = app.getAppPath();
 const DEFAULT_MODEL_OPTIONS = ['gpt-4o-mini', 'gpt-4o', 'o1-mini'];
-const ALLOWED_CATEGORIES = ['Solar Monitoring System', 'Air Quality Monitors', 'IoT Gateway', 'Mobile Phones', 'Nokia Mobile Phones', 'Nokia E5', 'Nokia C5', 'BlackBerry KeyOne'];
+const ALLOWED_CATEGORIES = ['Solar Monitoring System', 'Air Quality Monitors', 'IoT Gateway', 'Mobile Phones', 'Nokia Mobile Phones', 'Nokia E5', 'Nokia C5', 'BlackBerry KeyOne', 'BlackBerry Classic Q20'];
 const DEFAULT_CATEGORY = 'Air Quality Monitors';
 const CONTROLLED_ENV_KEYS = ['OPENAI_API_KEY', 'OPENAI_MODEL', 'DRY_RUN', 'PORT'];
 const INDIAMART_MIN_IMAGE_DIMENSION = 1000;

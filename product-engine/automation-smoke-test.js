@@ -37,6 +37,7 @@ function run() {
   assert.ok(Array.isArray(config["Nokia E5"]), "Missing Nokia E5 mapping");
   assert.ok(Array.isArray(config["Nokia C5"]), "Missing Nokia C5 mapping");
   assert.ok(Array.isArray(config["BlackBerry KeyOne"]), "Missing BlackBerry KeyOne mapping");
+  assert.ok(Array.isArray(config["BlackBerry Classic Q20"]), "Missing BlackBerry Classic Q20 mapping");
 
   const mobileRules = config["Mobile Phones"];
   assert.strictEqual(mobileRules.length, 10, "Mobile Phones must have all 10 preset rules");
@@ -152,6 +153,32 @@ function run() {
     resolveCategoryRules(config, "BlackBerry Mobile Phones", "BlackBerry KeyOne"),
     config["BlackBerry KeyOne"],
     "The selected BlackBerry KeyOne preset must override a stale queued product category"
+  );
+
+  const blackBerryClassicQ20Rules = config["BlackBerry Classic Q20"];
+  assert.strictEqual(blackBerryClassicQ20Rules.length, 7, "BlackBerry Classic Q20 must have all 7 preset rules");
+  assert.deepStrictEqual(
+    blackBerryClassicQ20Rules.map((rule) => [rule.questionText, rule.optionText, rule.inputValue || null]),
+    [
+      ["Keyboard Type", "QWERTY", null],
+      ["Internal Storage", "16 GB", null],
+      ["RAM", "2 GB", null],
+      ["Screen Size", "3.5 inch", null],
+      ["Battery Capacity", "Other", "2505"],
+      ["Operating System", "BlackBerry 10", null],
+      ["Network Type", "4G", null]
+    ],
+    "BlackBerry Classic Q20 preset does not match the requested specifications"
+  );
+  assert.strictEqual(
+    resolveIndiaMartCategory("BlackBerry Classic Q20"),
+    "BlackBerry Mobile Phones",
+    "BlackBerry Classic Q20 must map to the BlackBerry Mobile Phones IndiaMART category"
+  );
+  assert.strictEqual(
+    resolveCategoryRules(config, "BlackBerry Mobile Phones", "BlackBerry Classic Q20"),
+    config["BlackBerry Classic Q20"],
+    "The selected BlackBerry Classic Q20 preset must override a stale queued product category"
   );
 
   const lowResolutionPageTwo = evaluatePersistedStepState({

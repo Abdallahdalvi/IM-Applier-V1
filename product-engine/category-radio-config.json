@@ -420,5 +420,43 @@
       "questionText": "Network Type",
       "optionText": "4G"
     }
+  ],
+  "BlackBerry Classic Q20": [
+    {
+      "name": "Keyboard Type",
+      "questionText": "Keyboard Type",
+      "optionText": "QWERTY"
+    },
+    {
+      "name": "Internal Storage",
+      "questionText": "Internal Storage",
+      "optionText": "16 GB"
+    },
+    {
+      "name": "RAM",
+      "questionText": "RAM",
+      "optionText": "2 GB"
+    },
+    {
+      "name": "Screen Size",
+      "questionText": "Screen Size",
+      "optionText": "3.5 inch"
+    },
+    {
+      "name": "Battery Capacity",
+      "questionText": "Battery Capacity",
+      "optionText": "Other",
+      "inputValue": "2505"
+    },
+    {
+      "name": "Operating System",
+      "questionText": "Operating System",
+      "optionText": "BlackBerry 10"
+    },
+    {
+      "name": "Network Type",
+      "questionText": "Network Type",
+      "optionText": "4G"
+    }
   ]
 }
