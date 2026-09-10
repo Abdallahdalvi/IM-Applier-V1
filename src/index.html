@@ -181,8 +181,19 @@ body {
   display: flex; align-items: center; gap: 8px;
   padding: 10px 12px; background: var(--surface-cont);
   border-radius: var(--radius-sm); border: 1px solid var(--outline-v);
+  width: 100%; min-width: 0; overflow: hidden;
 }
-#resume-name { font-family: var(--mono); font-size: 12px; color: var(--on-surface); flex: 1; }
+#resume-info { min-width: 0; }
+#resume-name {
+  display: block; flex: 1 1 auto; min-width: 0; overflow: hidden;
+  white-space: nowrap; text-overflow: ellipsis;
+  font-family: var(--mono); font-size: 12px; color: var(--on-surface);
+}
+.resume-change-button {
+  background: var(--primary-light); border: 1px solid rgba(26,115,232,0.2);
+  padding: 6px 10px; font-weight: 600;
+}
+.resume-change-button:disabled { cursor: wait; opacity: 0.65; }
 .resume-preview-text {
   font-size: 11px; color: var(--on-surface-v); line-height: 1.5;
   max-height: 70px; overflow-y: auto; padding: 8px 10px;
@@ -383,8 +394,8 @@ select.md-input { resize: none; cursor: pointer; }
           <div id="resume-info" style="display:none">
             <div class="resume-file">
               <span style="font-size:20px">📎</span>
-              <span id="resume-name">datasheet.pdf</span>
-              <button id="resume-change" class="btn-text">Change</button>
+              <span id="resume-name" title="datasheet.pdf">datasheet.pdf</span>
+              <button type="button" id="resume-change" class="btn-text resume-change-button">Change PDF</button>
             </div>
             <div id="extracted-preview-box" class="resume-preview-text" style="display:none;">
               <div><strong>AI Extracted:</strong></div>
@@ -393,6 +404,7 @@ select.md-input { resize: none; cursor: pointer; }
               <div>Price: <span id="p-preview-price"></span></div>
             </div>
           </div>
+        </div>
       </div>
 
       <!-- Product Photos Card -->

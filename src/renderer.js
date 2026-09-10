@@ -13,6 +13,7 @@ let running = false;
 const stats = { discovered: 0, filtered: 0, applied: 0, skipped: 0, errors: 0 };
 let selectedPdfPath = '';
 let selectedPhotos = [];
+let pdfUploadInProgress = false;
 let configHydrated = false;
 let autoSaveTimer = null;
 let lastSavedConfigJson = '';
@@ -23,6 +24,7 @@ const DEFAULT_MODEL_OPTIONS = ['gpt-4o-mini', 'gpt-4o', 'o1-mini'];
 const dropZone          = $('drop-zone');
 const resumeInfo        = $('resume-info');
 const resumeNameEl      = $('resume-name');
+const resumeChangeBtn   = $('resume-change');
 const previewBox        = $('extracted-preview-box');
 const previewName       = $('p-preview-name');
 const previewCat        = $('p-preview-cat');
@@ -82,6 +84,7 @@ async function loadConfig() {
       dropZone.style.display = 'none';
       resumeInfo.style.display = 'block';
       resumeNameEl.textContent = selectedPdfPath.split(/[\\/]/).pop();
+      resumeNameEl.title = selectedPdfPath;
     }
 
     selectedPhotos = cfg.selectedPhotos || [];
@@ -116,6 +119,12 @@ dropZone.addEventListener('drop', e => {
 });
 
 async function handleUpload() {
+  if (pdfUploadInProgress) return;
+
+  pdfUploadInProgress = true;
+  resumeChangeBtn.disabled = true;
+  resumeChangeBtn.textContent = 'Selecting...';
+
   try {
     const result = await window.dalvi.uploadPdf('default');
     if (!result) return;
@@ -125,6 +134,7 @@ async function handleUpload() {
     dropZone.style.display   = 'none';
     resumeInfo.style.display = 'block';
     resumeNameEl.textContent = result.name;
+    resumeNameEl.title = result.storedPath || result.name;
 
     log('📄 Brochure uploaded: ' + result.name, 'success');
 
@@ -143,17 +153,15 @@ async function handleUpload() {
     scheduleAutoSave({ delay: 0, toastText: 'Brochure saved' });
   } catch (e) {
     log('❌ Upload failed: ' + e.message, 'error');
+  } finally {
+    pdfUploadInProgress = false;
+    resumeChangeBtn.disabled = false;
+    resumeChangeBtn.textContent = 'Change PDF';
   }
 }
 
-// Brochure change button
-document.addEventListener('click', e => {
-  if (e.target.closest('#resume-change')) {
-    handleUpload();
-  } else if (e.target.closest('#photos-change')) {
-    handlePhotosUpload();
-  }
-});
+resumeChangeBtn.addEventListener('click', handleUpload);
+$('photos-change').addEventListener('click', handlePhotosUpload);
 
 // Product Photos Upload
 photosDropZone.addEventListener('click', handlePhotosUpload);
