@@ -38,6 +38,7 @@ function run() {
   assert.ok(Array.isArray(config["Nokia C5"]), "Missing Nokia C5 mapping");
   assert.ok(Array.isArray(config["BlackBerry KeyOne"]), "Missing BlackBerry KeyOne mapping");
   assert.ok(Array.isArray(config["BlackBerry Classic Q20"]), "Missing BlackBerry Classic Q20 mapping");
+  assert.ok(Array.isArray(config["Nokia Mobiles"]), "Missing Nokia Mobiles mapping");
 
   const mobileRules = config["Mobile Phones"];
   assert.strictEqual(mobileRules.length, 10, "Mobile Phones must have all 10 preset rules");
@@ -179,6 +180,34 @@ function run() {
     resolveCategoryRules(config, "BlackBerry Mobile Phones", "BlackBerry Classic Q20"),
     config["BlackBerry Classic Q20"],
     "The selected BlackBerry Classic Q20 preset must override a stale queued product category"
+  );
+
+  const nokiaMobilesRules = config["Nokia Mobiles"];
+  assert.strictEqual(nokiaMobilesRules.length, 9, "Nokia Mobiles must have all 9 preset rules");
+  assert.deepStrictEqual(
+    nokiaMobilesRules.map((rule) => [rule.questionText, rule.optionText, rule.inputValue || null]),
+    [
+      ["Body Type", "Smart Feature", null],
+      ["Network Type", "4G VoLTE", null],
+      ["Battery Capacity", "3000 mAh", null],
+      ["RAM", "1 GB", null],
+      ["Screen Size", "2.4 inch", null],
+      ["Internal Storage", "16 GB", null],
+      ["SIM Type", "Dual SIM", null],
+      ["Primary Camera", "5 MP", null],
+      ["Operating System", "Nokia OS", null]
+    ],
+    "Nokia Mobiles preset does not match the requested specifications"
+  );
+  assert.strictEqual(
+    resolveIndiaMartCategory("Nokia Mobiles"),
+    "Nokia Mobile Phones",
+    "Nokia Mobiles must map to the Nokia Mobile Phones IndiaMART category"
+  );
+  assert.strictEqual(
+    resolveCategoryRules(config, "Nokia Mobile Phones", "Nokia Mobiles"),
+    config["Nokia Mobiles"],
+    "The selected Nokia Mobiles preset must override a stale queued product category"
   );
 
   const lowResolutionPageTwo = evaluatePersistedStepState({

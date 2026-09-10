@@ -458,5 +458,52 @@
       "questionText": "Network Type",
       "optionText": "4G"
     }
+  ],
+  "Nokia Mobiles": [
+    {
+      "name": "Body Type",
+      "questionText": "Body Type",
+      "optionText": "Smart Feature"
+    },
+    {
+      "name": "Network Type",
+      "questionText": "Network Type",
+      "optionText": "4G VoLTE"
+    },
+    {
+      "name": "Battery Capacity",
+      "questionText": "Battery Capacity",
+      "optionText": "3000 mAh"
+    },
+    {
+      "name": "RAM",
+      "questionText": "RAM",
+      "optionText": "1 GB"
+    },
+    {
+      "name": "Screen Size",
+      "questionText": "Screen Size",
+      "optionText": "2.4 inch"
+    },
+    {
+      "name": "Internal Storage",
+      "questionText": "Internal Storage",
+      "optionText": "16 GB"
+    },
+    {
+      "name": "SIM Type",
+      "questionText": "SIM Type",
+      "optionText": "Dual SIM"
+    },
+    {
+      "name": "Primary Camera",
+      "questionText": "Primary Camera",
+      "optionText": "5 MP"
+    },
+    {
+      "name": "Operating System",
+      "questionText": "Operating System",
+      "optionText": "Nokia OS"
+    }
   ]
 }

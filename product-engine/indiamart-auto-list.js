@@ -59,7 +59,8 @@ const CATEGORY_TARGET_ALIASES = {
   "Nokia E5": "Nokia Mobile Phones",
   "Nokia C5": "Nokia Mobile Phones",
   "BlackBerry KeyOne": "BlackBerry Mobile Phones",
-  "BlackBerry Classic Q20": "BlackBerry Mobile Phones"
+  "BlackBerry Classic Q20": "BlackBerry Mobile Phones",
+  "Nokia Mobiles": "Nokia Mobile Phones"
 };
 
 const stats = {
